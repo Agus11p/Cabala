@@ -1,0 +1,6 @@
+{
+  "name": "CÁBALA",
+  "description": "Plataforma de información, consulta y cultura del fútbol argentino. Partidos en vivo, estadísticas, tablas de posiciones y futuro competitivo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

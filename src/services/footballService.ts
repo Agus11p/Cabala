@@ -6,6 +6,8 @@ import {
   StandingRow,
   PromediosRow,
   StandingsResponse,
+  ZoneStandingsResponse,
+  AnnualTableResponse,
   TableType,
   UserProfile,
   NewsInsight,
@@ -90,7 +92,7 @@ class FootballService {
     const query = params.toString() ? `?${params.toString()}` : '';
     const res = await fetch(`/api/football/matches${query}`);
     if (!res.ok) {
-      throw new Error('Error al consultar partidos reales desde el proveedor oficial.');
+      throw new Error('Error al consultar partidos desde el proveedor de datos (ESPN).');
     }
     return await res.json();
   }
@@ -99,7 +101,7 @@ class FootballService {
     const res = await fetch(`/api/football/matches/${id}`);
     if (!res.ok) {
       if (res.status === 404) return null;
-      throw new Error('Error al obtener la ficha técnica oficial.');
+      throw new Error('Error al obtener la ficha técnica del encuentro.');
     }
     return await res.json();
   }
@@ -130,13 +132,46 @@ class FootballService {
   }
 
   // Standings
-  public async getStandings(type: TableType): Promise<StandingsResponse> {
-    const res = await fetch(`/api/football/standings?type=${type}`);
+  public async getStandings(type: TableType, zone?: 'A' | 'B'): Promise<StandingsResponse> {
+    const zoneQuery = zone ? `&zone=${zone}` : '';
+    const res = await fetch(`/api/football/standings?type=${type}${zoneQuery}`);
     if (!res.ok) {
       return {
         type,
         available: false,
         message: 'No fue posible conectar con el servicio de clasificación.',
+        data: [],
+      };
+    }
+    return await res.json();
+  }
+
+  public async getZoneStandings(
+    season = '2026',
+    phase: 'apertura' | 'clausura' = 'clausura',
+    zone: 'A' | 'B' = 'A'
+  ): Promise<ZoneStandingsResponse> {
+    const res = await fetch(`/api/football/standings/zone?season=${season}&phase=${phase}&zone=${zone}`);
+    if (!res.ok) {
+      return {
+        seasonYear: season,
+        phase,
+        zone,
+        available: false,
+        message: 'No se pudo obtener la tabla de la zona.',
+        data: [],
+      };
+    }
+    return await res.json();
+  }
+
+  public async getAnnualTable(season = '2026'): Promise<AnnualTableResponse> {
+    const res = await fetch(`/api/football/standings/annual?season=${season}`);
+    if (!res.ok) {
+      return {
+        seasonYear: season,
+        available: false,
+        message: 'No se pudo obtener la tabla anual.',
         data: [],
       };
     }

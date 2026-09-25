@@ -12,7 +12,7 @@ interface MatchesPageProps {
   isLoading?: boolean;
 }
 
-type FilterType = 'all' | 'live' | 'today' | 'finished' | 'scheduled';
+type FilterType = 'all' | 'live' | 'scheduled' | 'finished';
 
 export const MatchesPage: React.FC<MatchesPageProps> = ({
   matches,
@@ -22,52 +22,38 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
 }) => {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
-  const todayStr = new Date().toISOString().split('T')[0];
-
   const liveMatches = matches.filter((m) => m.status === 'live');
-  const finishedMatches = matches.filter((m) => m.status === 'finished');
   const scheduledMatches = matches.filter((m) => m.status === 'scheduled');
-  const todayMatches = matches.filter((m) => m.date === todayStr || m.status === 'live');
+  const finishedMatches = matches.filter((m) => m.status === 'finished');
 
-  // Detect current tournament/round dynamically
-  const activeRoundName = matches[0]?.round || 'Fecha Oficial';
+  const activeRoundName = matches[0]?.round || 'Fecha Oficial AFA';
 
   const filterTabs = [
     { id: 'all' as const, label: 'Todos', count: matches.length },
     { id: 'live' as const, label: 'En Vivo', count: liveMatches.length },
-    { id: 'today' as const, label: 'Hoy', count: todayMatches.length },
+    { id: 'scheduled' as const, label: 'Próximos', count: scheduledMatches.length },
     { id: 'finished' as const, label: 'Finalizados', count: finishedMatches.length },
-    { id: 'scheduled' as const, label: 'Programados', count: scheduledMatches.length },
   ];
-
-  const filteredMatches = matches.filter((m) => {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'live') return m.status === 'live';
-    if (activeFilter === 'today') return m.date === todayStr || m.status === 'live';
-    if (activeFilter === 'finished') return m.status === 'finished';
-    if (activeFilter === 'scheduled') return m.status === 'scheduled';
-    return true;
-  });
 
   return (
     <div className="space-y-8 animate-fadeIn pb-16">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#22272E] pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-white/[0.08] pb-6">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-widest text-[#DCA842] block mb-1">
-            Liga Profesional de Fútbol AFA
+            Programación y Resultados · 2026
           </span>
-          <h1 className="font-editorial font-black text-3xl md:text-5xl text-[#F1EDE6] tracking-tight">
+          <h1 className="font-editorial font-black text-3xl sm:text-5xl text-[#F1EDE6] tracking-tight">
             PARTIDOS
           </h1>
           <p className="text-xs text-[#8B949E] mt-1 font-medium">
-            Marcadores en directo, resultados oficiales y programación oficial de AFA.
+            Marcadores en directo, cronograma y fichas técnicas de Primera División.
           </p>
         </div>
 
         {/* Dynamic Round & Refresh */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#F1EDE6] bg-[#121519] px-3.5 py-1.5 rounded-xl border border-[#22272E]">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#F1EDE6] bg-[#121519] px-3.5 py-1.5 rounded-xl border border-white/[0.08]">
             <Calendar className="w-3.5 h-3.5 text-[#DCA842]" />
             <span>{activeRoundName}</span>
           </div>
@@ -76,8 +62,8 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
             <button
               onClick={onRefresh}
               disabled={isLoading}
-              title="Actualizar partidos en tiempo real"
-              className="p-2 rounded-xl bg-[#121519] border border-[#22272E] hover:border-[#DCA842] text-[#8B949E] hover:text-[#DCA842] transition-colors"
+              title="Actualizar partidos"
+              className="p-2 rounded-xl bg-[#121519] border border-white/[0.08] hover:border-[#DCA842] text-[#8B949E] hover:text-[#DCA842] transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#DCA842]' : ''}`} />
             </button>
@@ -95,20 +81,22 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
         />
       </div>
 
-      {/* LIVE SECTION HIGHLIGHT IF ANY */}
-      {activeFilter === 'all' && liveMatches.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#30A46C] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#30A46C]"></span>
+      {/* ───────────────────────────────────────────────────────────
+          1. EN VIVO AHORA (Destacado)
+         ─────────────────────────────────────────────────────────── */}
+      {(activeFilter === 'all' || activeFilter === 'live') && liveMatches.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-white/[0.08]">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10B981] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10B981]" />
             </span>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#30A46C]">
-              En Juego Ahora · Cobertura en Vivo
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[#10B981]">
+              En Juego Ahora ({liveMatches.length})
             </h2>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {liveMatches.map((m) => (
               <MatchCard key={m.id} match={m} onClick={onSelectMatch} featured />
             ))}
@@ -116,25 +104,55 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
         </section>
       )}
 
-      {/* MATCHES LIST */}
-      <section className="space-y-4">
-        {filteredMatches.length > 0 ? (
-          <div className="space-y-3">
-            {filteredMatches
-              .filter((m) => activeFilter !== 'all' || m.status !== 'live')
-              .map((match) => (
-                <MatchCard key={match.id} match={match} onClick={onSelectMatch} />
-              ))}
+      {/* ───────────────────────────────────────────────────────────
+          2. PRÓXIMOS PARTIDOS
+         ─────────────────────────────────────────────────────────── */}
+      {(activeFilter === 'all' || activeFilter === 'scheduled') && scheduledMatches.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[#F1EDE6]">
+              Próximos Partidos ({scheduledMatches.length})
+            </h2>
+            <span className="text-[11px] text-[#8B949E]">Horario oficial de Argentina</span>
           </div>
-        ) : (
-          <EmptyState
-            title="No hay partidos para el criterio seleccionado"
-            description="La programación oficial del fútbol argentino se actualiza según el calendario oficial de AFA."
-            actionLabel="Ver todos los partidos oficiales"
-            onAction={() => setActiveFilter('all')}
-          />
-        )}
-      </section>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {scheduledMatches.map((match) => (
+              <MatchCard key={match.id} match={match} onClick={onSelectMatch} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────
+          3. RESULTADOS / FINALIZADOS
+         ─────────────────────────────────────────────────────────── */}
+      {(activeFilter === 'all' || activeFilter === 'finished') && finishedMatches.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[#8B949E]">
+              Resultados de la Fecha ({finishedMatches.length})
+            </h2>
+            <span className="text-[11px] text-[#8B949E]">Marcadores finales</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {finishedMatches.map((match) => (
+              <MatchCard key={match.id} match={match} onClick={onSelectMatch} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Empty State */}
+      {matches.length === 0 && (
+        <EmptyState
+          title="No hay partidos programados"
+          description="Los partidos se sincronizan directamente con el feed deportivo oficial de la competencia."
+          actionLabel="Actualizar"
+          onAction={onRefresh}
+        />
+      )}
     </div>
   );
 };

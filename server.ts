@@ -3,6 +3,8 @@ import type { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { resolveZoneTie, getAnnualTable, validateStandingsIntegrity, validateZoneIntegrity } from './src/services/competitionRules';
+import type { ZoneStanding, StandingRow, DataInconsistencyRecord } from './src/types/football';
 
 dotenv.config();
 
@@ -81,7 +83,7 @@ function mapStatus(statusType: { name?: string; state?: string; completed?: bool
   return 'scheduled';
 }
 
-function normalizeEspnTeam(teamData: any) {
+function normalizeEspnTeam(teamData: any, zone?: 'A' | 'B') {
   const id = String(teamData.id || '');
   const name = teamData.displayName || teamData.name || 'Club';
   const shortName = teamData.shortDisplayName || teamData.name || name;
@@ -101,6 +103,7 @@ function normalizeEspnTeam(teamData: any) {
     logo,
     primaryColor,
     secondaryColor,
+    zone,
   };
 }
 
@@ -155,10 +158,12 @@ function normalizeEspnMatch(event: any) {
 
 app.get('/api/football/provider-info', (req: Request, res: Response) => {
   res.json({
-    provider: 'ESPN Soccer API (Public Official ARG.1 Feed)',
+    provider: 'ESPN Soccer API (Feed Deportivo ARG.1)',
     status: 'connected',
     coverage: 'Liga Profesional de Fútbol Argentino',
     season: '2026',
+    dataSource: 'ESPN',
+    regulationsSource: 'AFA / Liga Profesional de Fútbol',
     features: {
       liveMatches: true,
       scoreboard: true,
@@ -166,7 +171,7 @@ app.get('/api/football/provider-info', (req: Request, res: Response) => {
       teams: true,
       news: true,
       lineupsAndStats: true,
-      promediosAFA: 'No reportado directamente por la API de ESPN (mostrado como Datos no disponibles)',
+      promediosAFA: 'No reportado por la API de ESPN (mostrado como Datos no disponibles)',
     },
   });
 });
@@ -206,7 +211,7 @@ app.get('/api/football/matches', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching matches from ESPN:', error.message);
     res.status(502).json({
-      error: 'No se pudieron obtener los partidos reales desde el proveedor oficial.',
+      error: 'No se pudieron obtener los partidos desde el proveedor de datos (ESPN).',
       details: error.message,
     });
   }
@@ -310,24 +315,91 @@ app.get('/api/football/matches/:id', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching match detail:', error.message);
     res.status(502).json({
-      error: 'No se pudieron obtener los datos de la ficha técnica oficial.',
+      error: 'No se pudieron obtener los datos de la ficha técnica desde el proveedor (ESPN).',
       details: error.message,
     });
   }
 });
 
+function parseChildEntries(child: any, zone: 'A' | 'B', phase: 'apertura' | 'clausura'): ZoneStanding[] {
+  const entries = child?.standings?.entries || [];
+  const getStat = (statsArr: any[], name: string): number => {
+    const s = (statsArr || []).find((x: any) => x.name === name || x.type === name);
+    return s?.value ?? 0;
+  };
+
+  const rawRows: StandingRow[] = entries.map((entry: any, index: number) => {
+    const statsList = entry.stats || [];
+    const played = getStat(statsList, 'gamesPlayed');
+    const won = getStat(statsList, 'wins');
+    const drawn = getStat(statsList, 'ties');
+    const lost = getStat(statsList, 'losses');
+    const goalsFor = getStat(statsList, 'pointsFor');
+    const goalsAgainst = getStat(statsList, 'pointsAgainst');
+    const goalDiff = getStat(statsList, 'pointDifferential');
+    const points = getStat(statsList, 'points');
+    const yellowCards = getStat(statsList, 'yellowCards');
+    const redCards = getStat(statsList, 'redCards');
+    const fairPlayPoints = yellowCards || redCards ? (yellowCards * -1) + (redCards * -5) : undefined;
+
+    const team = normalizeEspnTeam(entry.team || {}, zone);
+
+    return {
+      position: index + 1,
+      teamId: team.id,
+      team,
+      played,
+      won,
+      drawn,
+      lost,
+      goalsFor,
+      goalsAgainst,
+      goalDiff,
+      points,
+      zone,
+      zonePosition: index + 1,
+      phase,
+      seasonYear: '2026',
+      fairPlayPoints,
+      form: [] as ('W' | 'D' | 'L')[],
+    };
+  });
+
+  const resolved = resolveZoneTie(rawRows);
+  return resolved.map((r, idx) => ({
+    ...r,
+    position: idx + 1,
+    zonePosition: idx + 1,
+    zone,
+    phase,
+    seasonYear: '2026',
+    qualificationZone: idx < 8 ? ('playoffs' as const) : undefined,
+    qualificationReason: idx < 8 ? `Clasificado a Octavos de Final (${idx + 1}° Zona ${zone})` : undefined,
+  }));
+}
+
 // Standings
 app.get('/api/football/standings', async (req: Request, res: Response) => {
   try {
-    const { type = 'clausura' } = req.query;
+    const { type = 'clausura', season = '2026' } = req.query;
+
+    if (season !== '2026') {
+      return res.status(400).json({
+        error: `Temporada "${season}" no soportada. CÁBALA opera exclusivamente en la Temporada 2026.`,
+        available: false,
+        data: [],
+      });
+    }
 
     // Strict Rule: If table is promedios, we do not invent fictional rows
     if (type === 'promedios') {
       return res.json({
         type: 'promedios',
+        season: '2026',
         available: false,
         message: 'La tabla de promedios (acumulada 3 temporadas) no está disponible en la API oficial de ESPN. En cumplimiento con la regla de CÁBALA, no se inventan datos.',
         data: [],
+        dataState: 'EMPTY',
       });
     }
 
@@ -337,68 +409,244 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
       3 * 60 * 1000 // 3 minutes cache
     );
 
-    // ESPN returns children groups or a single group
-    let entries: any[] = [];
-    if (rawData.children && rawData.children.length > 0) {
-      for (const child of rawData.children) {
-        if (child.standings?.entries) {
-          entries = entries.concat(child.standings.entries);
-        }
-      }
-    } else if (rawData.standings?.entries) {
-      entries = rawData.standings.entries;
+    let childA: any = null;
+    let childB: any = null;
+
+    if (rawData.children && rawData.children.length >= 2) {
+      childA = rawData.children.find((c: any) => c.name?.toLowerCase().includes('a')) || rawData.children[0];
+      childB = rawData.children.find((c: any) => c.name?.toLowerCase().includes('b')) || rawData.children[1];
+    } else if (rawData.children && rawData.children.length === 1) {
+      childA = rawData.children[0];
     }
 
-    // Sort by points desc, then goal difference desc
-    const getStat = (statsArr: any[], name: string): number => {
-      const s = (statsArr || []).find((x: any) => x.name === name || x.type === name);
-      return s?.value ?? 0;
-    };
+    const currentPhase = (type === 'apertura' ? 'apertura' : 'clausura') as 'apertura' | 'clausura';
+    const zoneAStandings = childA ? parseChildEntries(childA, 'A', currentPhase) : [];
+    const zoneBStandings = childB ? parseChildEntries(childB, 'B', currentPhase) : [];
 
-    const standings = entries.map((entry: any, index: number) => {
-      const statsList = entry.stats || [];
-      const played = getStat(statsList, 'gamesPlayed');
-      const won = getStat(statsList, 'wins');
-      const drawn = getStat(statsList, 'ties');
-      const lost = getStat(statsList, 'losses');
-      const goalsFor = getStat(statsList, 'pointsFor');
-      const goalsAgainst = getStat(statsList, 'pointsAgainst');
-      const goalDiff = getStat(statsList, 'pointDifferential');
-      const points = getStat(statsList, 'points');
+    // Validar integridad estructural de zonas (exactamente 15 clubes cada una)
+    const inconsistencies: DataInconsistencyRecord[] = [];
+    if (zoneAStandings.length > 0) {
+      inconsistencies.push(...validateZoneIntegrity(zoneAStandings, 'A'));
+      inconsistencies.push(...validateStandingsIntegrity(zoneAStandings, 'ESPN Group A'));
+    }
+    if (zoneBStandings.length > 0) {
+      inconsistencies.push(...validateZoneIntegrity(zoneBStandings, 'B'));
+      inconsistencies.push(...validateStandingsIntegrity(zoneBStandings, 'ESPN Group B'));
+    }
 
-      const team = normalizeEspnTeam(entry.team || {});
+    const hasZoneCountError = (zoneAStandings.length > 0 && zoneAStandings.length !== 15) ||
+                             (zoneBStandings.length > 0 && zoneBStandings.length !== 15);
 
-      return {
-        position: index + 1,
-        teamId: team.id,
-        team,
-        played,
-        won,
-        drawn,
-        lost,
-        goalsFor,
-        goalsAgainst,
-        goalDiff,
-        points,
-        form: [] as ('W' | 'D' | 'L')[],
-        qualificationZone: index < 4 ? ('libertadores' as const) : index < 10 ? ('sudamericana' as const) : undefined,
-      };
-    });
+    if (hasZoneCountError) {
+      return res.status(502).json({
+        type,
+        phase: currentPhase,
+        season: '2026',
+        available: false,
+        dataState: 'DATA_INCONSISTENCY',
+        message: `Error de integridad reglamentaria: Se detectaron ${zoneAStandings.length} clubes en Zona A y ${zoneBStandings.length} en Zona B. El reglamento AFA exige exactamente 15 clubes por zona. No se exhibe una tabla distorsionada.`,
+        inconsistencies,
+        data: [],
+      });
+    }
 
-    standings.sort((a, b) => b.points - a.points || b.goalDiff - a.goalDiff);
-    standings.forEach((s, idx) => (s.position = idx + 1));
+    // Tabla Anual: All 30 clubs together
+    if (type === 'anual') {
+      const combinedAll30 = [...zoneAStandings, ...zoneBStandings];
+      const annualStandings = getAnnualTable(combinedAll30, '2026');
+      const annualMathInconsistencies = validateStandingsIntegrity(annualStandings, 'Tabla General Anual Acumulada');
 
-    res.json({
+      return res.json({
+        type: 'anual',
+        season: '2026',
+        available: annualStandings.length > 0,
+        dataState: annualMathInconsistencies.length > 0 ? 'DATA_INCONSISTENCY' : annualStandings.length > 0 ? 'SUCCESS' : 'EMPTY',
+        inconsistencies: annualMathInconsistencies,
+        data: annualStandings,
+      });
+    }
+
+    // Apertura o Clausura: Separación obligatoria de Zona A y Zona B
+    const requestedZone = (req.query.zone as string | undefined)?.toUpperCase();
+    const dataState = inconsistencies.length > 0 ? 'DATA_INCONSISTENCY' : (zoneAStandings.length > 0 || zoneBStandings.length > 0) ? 'SUCCESS' : 'EMPTY';
+
+    if (requestedZone === 'A') {
+      return res.json({
+        type,
+        phase: currentPhase,
+        zone: 'A',
+        season: '2026',
+        available: zoneAStandings.length > 0,
+        dataState,
+        inconsistencies,
+        data: zoneAStandings,
+        zoneA: zoneAStandings,
+        zoneB: zoneBStandings,
+      });
+    }
+
+    if (requestedZone === 'B') {
+      return res.json({
+        type,
+        phase: currentPhase,
+        zone: 'B',
+        season: '2026',
+        available: zoneBStandings.length > 0,
+        dataState,
+        inconsistencies,
+        data: zoneBStandings,
+        zoneA: zoneAStandings,
+        zoneB: zoneBStandings,
+      });
+    }
+
+    return res.json({
       type,
-      available: standings.length > 0,
+      phase: currentPhase,
       season: '2026',
-      data: standings,
+      available: zoneAStandings.length > 0 || zoneBStandings.length > 0,
+      dataState,
+      inconsistencies,
+      zoneA: zoneAStandings,
+      zoneB: zoneBStandings,
+      data: zoneAStandings,
     });
   } catch (error: any) {
     console.error('Error fetching standings:', error.message);
     res.status(502).json({
       error: 'No se pudieron obtener las tablas oficiales de posiciones.',
       available: false,
+      dataState: 'ERROR',
+      data: [],
+    });
+  }
+});
+
+// Zone standings endpoint: /api/football/standings/zone?phase=apertura&zone=A
+app.get('/api/football/standings/zone', async (req: Request, res: Response) => {
+  try {
+    const rawPhase = ((req.query.phase as string) || 'clausura').toLowerCase();
+    const phase = (rawPhase === 'apertura' ? 'apertura' : 'clausura') as 'apertura' | 'clausura';
+    const rawZone = ((req.query.zone as string) || 'A').toUpperCase();
+    if (rawZone !== 'A' && rawZone !== 'B') {
+      return res.status(400).json({
+        error: 'Zona inválida. Debe ser "A" o "B".',
+        available: false,
+        dataState: 'ERROR',
+        data: [],
+      });
+    }
+    const zone = rawZone as 'A' | 'B';
+    const seasonYear = (req.query.season as string) || '2026';
+    if (seasonYear !== '2026') {
+      return res.status(400).json({
+        error: 'Temporada no soportada. CÁBALA opera exclusivamente en la Temporada 2026.',
+        available: false,
+        dataState: 'ERROR',
+        data: [],
+      });
+    }
+
+    const url = 'https://site.api.espn.com/apis/v2/sports/soccer/arg.1/standings';
+    const rawData: any = await fetchWithCache('espn_standings', () =>
+      fetchWithTimeout(url, 8000),
+      3 * 60 * 1000
+    );
+
+    let child = null;
+    if (rawData.children && rawData.children.length >= 2) {
+      child = zone === 'B'
+        ? rawData.children.find((c: any) => c.name?.toLowerCase().includes('b')) || rawData.children[1]
+        : rawData.children.find((c: any) => c.name?.toLowerCase().includes('a')) || rawData.children[0];
+    } else if (rawData.children && rawData.children.length === 1) {
+      child = rawData.children[0];
+    }
+
+    const zoneStandings = child ? parseChildEntries(child, zone, phase) : [];
+    const inconsistencies: DataInconsistencyRecord[] = [];
+    if (zoneStandings.length > 0) {
+      inconsistencies.push(...validateZoneIntegrity(zoneStandings, zone));
+      inconsistencies.push(...validateStandingsIntegrity(zoneStandings, `ESPN Group ${zone}`));
+    }
+
+    const hasZoneCountError = zoneStandings.length > 0 && zoneStandings.length !== 15;
+    if (hasZoneCountError) {
+      return res.status(502).json({
+        seasonYear,
+        phase,
+        zone,
+        available: false,
+        dataState: 'DATA_INCONSISTENCY',
+        message: `Error de integridad reglamentaria: Se detectaron ${zoneStandings.length} clubes en Zona ${zone} (deben ser 15).`,
+        inconsistencies,
+        data: [],
+      });
+    }
+
+    res.json({
+      seasonYear,
+      phase,
+      zone,
+      available: zoneStandings.length > 0,
+      dataState: inconsistencies.length > 0 ? 'DATA_INCONSISTENCY' : zoneStandings.length > 0 ? 'SUCCESS' : 'EMPTY',
+      inconsistencies,
+      data: zoneStandings,
+    });
+  } catch (error: any) {
+    console.error('Error fetching zone standings:', error.message);
+    res.status(502).json({
+      error: 'No se pudo obtener la tabla de la zona.',
+      available: false,
+      dataState: 'ERROR',
+      data: [],
+    });
+  }
+});
+
+// Annual table endpoint: /api/football/standings/annual?season=2026
+app.get('/api/football/standings/annual', async (req: Request, res: Response) => {
+  try {
+    const seasonYear = (req.query.season as string) || '2026';
+    if (seasonYear !== '2026') {
+      return res.status(400).json({
+        error: 'Temporada no soportada. CÁBALA opera exclusivamente en la Temporada 2026.',
+        available: false,
+        dataState: 'ERROR',
+        data: [],
+      });
+    }
+
+    const url = 'https://site.api.espn.com/apis/v2/sports/soccer/arg.1/standings';
+    const rawData: any = await fetchWithCache('espn_standings', () =>
+      fetchWithTimeout(url, 8000),
+      3 * 60 * 1000
+    );
+
+    let childA = null;
+    let childB = null;
+    if (rawData.children && rawData.children.length >= 2) {
+      childA = rawData.children.find((c: any) => c.name?.toLowerCase().includes('a')) || rawData.children[0];
+      childB = rawData.children.find((c: any) => c.name?.toLowerCase().includes('b')) || rawData.children[1];
+    }
+
+    const zoneA = childA ? parseChildEntries(childA, 'A', 'clausura') : [];
+    const zoneB = childB ? parseChildEntries(childB, 'B', 'clausura') : [];
+    const annualTable = getAnnualTable([...zoneA, ...zoneB], seasonYear);
+    const inconsistencies = validateStandingsIntegrity(annualTable, 'Tabla General Anual Acumulada');
+
+    res.json({
+      seasonYear,
+      available: annualTable.length > 0,
+      dataState: inconsistencies.length > 0 ? 'DATA_INCONSISTENCY' : annualTable.length > 0 ? 'SUCCESS' : 'EMPTY',
+      inconsistencies,
+      data: annualTable,
+    });
+  } catch (error: any) {
+    console.error('Error fetching annual standings:', error.message);
+    res.status(502).json({
+      error: 'No se pudo obtener la tabla anual.',
+      available: false,
+      dataState: 'ERROR',
       data: [],
     });
   }
@@ -419,24 +667,7 @@ app.get('/api/football/teams', async (req: Request, res: Response) => {
       const teamObj = normalizeEspnTeam(raw);
       return {
         ...teamObj,
-        recentForm: ['W', 'D', 'W'] as ('W' | 'D' | 'L')[],
-        seasonStats: {
-          played: 0,
-          won: 0,
-          drawn: 0,
-          lost: 0,
-          goalsFor: 0,
-          goalsAgainst: 0,
-          points: 0,
-          position: 0,
-          cleanSheets: 0,
-          avgPossession: 50,
-        },
-        titlesCount: {
-          league: 0,
-          nationalCup: 0,
-          international: 0,
-        },
+        recentForm: [] as ('W' | 'D' | 'L')[],
       };
     });
 
@@ -459,8 +690,8 @@ app.get('/api/football/news', async (req: Request, res: Response) => {
       5 * 60 * 1000 // 5 minutes cache
     );
 
-    const articles = (data.articles || []).map((art: any) => ({
-      id: String(art.id || Math.random()),
+    const articles = (data.articles || []).map((art: any, idx: number) => ({
+      id: String(art.id || `espn_art_${idx}`),
       title: art.headline || art.title || 'Actualidad del fútbol argentino',
       summary: art.description || '',
       author: art.byline || 'Crónica Deportiva',

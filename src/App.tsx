@@ -6,6 +6,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { BottomNav } from './components/layout/BottomNav';
 import { UserProfileModal } from './components/layout/UserProfileModal';
 import { GameTeaserModal } from './components/layout/GameTeaserModal';
+import { PreguntaleACabalaModal } from './components/layout/PreguntaleACabalaModal';
 import { HomePage } from './pages/HomePage';
 import { MatchesPage } from './pages/MatchesPage';
 import { StandingsPage } from './pages/StandingsPage';
@@ -13,10 +14,12 @@ import { ClubsPage } from './pages/ClubsPage';
 import { MatchDetailView } from './components/matches/MatchDetailView';
 import { ClubDetailView } from './components/clubs/ClubDetailView';
 import { MatchCardSkeleton } from './components/common/SkeletonLoader';
+import { testFirebaseConnection } from './services/firebaseClient';
 
 export default function App() {
   // Navigation & View states
   const [currentView, setCurrentView] = useState<'inicio' | 'partidos' | 'tablas' | 'clubes'>('inicio');
+  const [initialStandingsTable, setInitialStandingsTable] = useState<any>(undefined);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   const [detailedMatch, setDetailedMatch] = useState<Match | null>(null);
@@ -24,6 +27,7 @@ export default function App() {
   // Modals
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isGameTeaserOpen, setIsGameTeaserOpen] = useState(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
 
   // Core Data State
   const [matches, setMatches] = useState<Match[]>([]);
@@ -34,6 +38,11 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshingMatches, setIsRefreshingMatches] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Firebase initialization check
+  useEffect(() => {
+    testFirebaseConnection();
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -63,50 +72,42 @@ export default function App() {
     loadData();
   }, [loadData]);
 
-  // Refresh matches only
   const handleRefreshMatches = async () => {
+    setIsRefreshingMatches(true);
     try {
-      setIsRefreshingMatches(true);
-      const updatedMatches = await footballService.getMatches();
-      setMatches(updatedMatches);
-    } catch {
-      // ignore transient refresh failure
+      const refreshedMatches = await footballService.getMatches();
+      setMatches(refreshedMatches);
+    } catch (err) {
+      console.error('Error refreshing matches:', err);
     } finally {
       setIsRefreshingMatches(false);
     }
   };
 
-  // Load detailed match data when selected
-  useEffect(() => {
-    if (!selectedMatchId) {
-      setDetailedMatch(null);
-      return;
+  const handleNavigate = (view: string, initialTable?: any) => {
+    setCurrentView(view as any);
+    if (initialTable) {
+      setInitialStandingsTable(initialTable);
     }
-
-    let isMounted = true;
-    footballService.getMatchById(selectedMatchId).then((m) => {
-      if (isMounted && m) {
-        setDetailedMatch(m);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedMatchId]);
-
-  // Navigation handlers
-  const handleNavigate = (view: string) => {
-    setCurrentView(view as 'inicio' | 'partidos' | 'tablas' | 'clubes');
     setSelectedMatchId(null);
     setSelectedClubId(null);
+    setDetailedMatch(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSelectMatch = (matchId: string) => {
+  const handleSelectMatch = async (matchId: string) => {
     setSelectedMatchId(matchId);
     setSelectedClubId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    try {
+      const detail = await footballService.getMatchById(matchId);
+      if (detail) {
+        setDetailedMatch(detail);
+      }
+    } catch (err) {
+      console.error('Failed to load detailed match info:', err);
+    }
   };
 
   const handleSelectClub = (clubId: string) => {
@@ -147,6 +148,7 @@ export default function App() {
           user={userProfile}
           onOpenProfile={() => setIsProfileOpen(true)}
           onOpenGame={() => setIsGameTeaserOpen(true)}
+          onOpenAiChat={() => setIsAiChatOpen(true)}
         />
       )}
 
@@ -160,55 +162,59 @@ export default function App() {
             user={userProfile}
             onOpenProfile={() => setIsProfileOpen(true)}
             onOpenGame={() => setIsGameTeaserOpen(true)}
+            onOpenAiChat={() => setIsAiChatOpen(true)}
           />
         )}
 
-        {/* Content Viewport */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-10 py-6 max-w-5xl mx-auto w-full mb-16 lg:mb-0">
+        {/* Dynamic Center Stage */}
+        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-6 md:py-8">
           {isLoading ? (
-            <div className="space-y-6 pt-4">
-              <div className="h-8 w-48 bg-[#181C22] rounded-xl animate-pulse" />
-              <MatchCardSkeleton />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <MatchCardSkeleton />
-                <MatchCardSkeleton />
+            <div className="space-y-6">
+              <div className="h-64 rounded-3xl bg-[#121519] border border-[#22272E] animate-pulse" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 space-y-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <MatchCardSkeleton key={i} />
+                  ))}
+                </div>
+                <div className="h-96 rounded-2xl bg-[#121519] border border-[#22272E] animate-pulse" />
               </div>
             </div>
           ) : error ? (
-            <div className="py-16 text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-rose-950/40 border border-rose-800/40 flex items-center justify-center mx-auto text-[#E5484D]">
-                ⚠️
+            <div className="rounded-3xl bg-[#121519] border border-[#22272E] p-12 text-center space-y-4 max-w-md mx-auto my-12">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto text-xl font-bold">
+                !
               </div>
-              <h2 className="font-editorial font-bold text-lg text-[#F1EDE6]">Servicio no disponible temporalmente</h2>
-              <p className="text-xs text-[#8B949E] max-w-md mx-auto">{error}</p>
+              <h2 className="font-editorial font-bold text-xl text-[#F1EDE6]">
+                Conexión con el proveedor de datos (ESPN)
+              </h2>
+              <p className="text-xs text-[#8B949E] leading-relaxed">{error}</p>
               <button
                 onClick={loadData}
-                className="px-5 py-2.5 bg-[#181C22] text-[#F1EDE6] hover:text-[#DCA842] border border-[#22272E] hover:border-[#DCA842]/50 rounded-xl text-xs font-semibold transition-all"
+                className="px-5 py-2.5 rounded-xl bg-[#DCA842] text-[#0A0C0E] font-bold text-xs uppercase tracking-wider hover:bg-[#c99532] transition-colors"
               >
-                Reintentar conexión
+                Reintentar
               </button>
             </div>
           ) : (
             <>
-              {/* If a Match is selected -> Render MatchDetailView */}
-              {activeMatch ? (
+              {/* If a match detail is open */}
+              {selectedMatchId && activeMatch ? (
                 <MatchDetailView
                   match={activeMatch}
                   onBack={handleBackFromMatch}
                   onSelectTeam={handleSelectClub}
                 />
-              ) : activeClub ? (
-                /* If a Club is selected -> Render ClubDetailView */
+              ) : selectedClubId && activeClub ? (
+                /* If a club detail is open */
                 <ClubDetailView
                   team={activeClub}
                   matches={matches}
                   onBack={handleBackFromClub}
                   onSelectMatch={handleSelectMatch}
-                  isFavorite={userProfile?.favoriteClubId === activeClub.id}
-                  onToggleFavorite={handleFavoriteClubChange}
                 />
               ) : (
-                /* Standard Main Pages */
+                /* Top-Level Views */
                 <>
                   {currentView === 'inicio' && (
                     <HomePage
@@ -218,10 +224,12 @@ export default function App() {
                       topTeams={teams}
                       topStandings={topStandings}
                       news={news}
+                      userProfile={userProfile}
                       onSelectMatch={handleSelectMatch}
                       onSelectClub={handleSelectClub}
                       onNavigate={handleNavigate}
                       onOpenGame={() => setIsGameTeaserOpen(true)}
+                      onOpenProfile={() => setIsProfileOpen(true)}
                     />
                   )}
 
@@ -237,6 +245,7 @@ export default function App() {
                   {currentView === 'tablas' && (
                     <StandingsPage
                       onSelectClub={handleSelectClub}
+                      initialTable={initialStandingsTable}
                     />
                   )}
 
@@ -264,7 +273,7 @@ export default function App() {
                   </span>
                 </div>
                 <p className="text-[11px] text-[#8B949E] max-w-sm">
-                  Plataforma editorial y de consulta del fútbol de Primera División de la República Argentina con fuentes de datos oficiales.
+                  Plataforma oficial y de consulta del fútbol de Primera División de la República Argentina con fuentes de datos oficiales y reglamento AFA 2026.
                 </p>
               </div>
 
@@ -281,6 +290,9 @@ export default function App() {
                 <button onClick={() => handleNavigate('clubes')} className="hover:text-[#F1EDE6] transition-colors">
                   Clubes
                 </button>
+                <button onClick={() => setIsAiChatOpen(true)} className="hover:text-[#DCA842] transition-colors text-[#DCA842]">
+                  Consultar IA
+                </button>
                 <span className="text-[#8B949E]/50">·</span>
                 <span>Temporada Oficial 2026</span>
               </div>
@@ -294,6 +306,7 @@ export default function App() {
         currentView={currentView}
         onNavigate={handleNavigate}
         onOpenGame={() => setIsGameTeaserOpen(true)}
+        onOpenProfile={() => setIsProfileOpen(true)}
       />
 
       {/* User Identity Modal ("Tu Cábala") */}
@@ -311,6 +324,13 @@ export default function App() {
       <GameTeaserModal
         isOpen={isGameTeaserOpen}
         onClose={() => setIsGameTeaserOpen(false)}
+      />
+
+      {/* AI Assistant Modal ("Preguntale a CÁBALA") */}
+      <PreguntaleACabalaModal
+        isOpen={isAiChatOpen}
+        onClose={() => setIsAiChatOpen(false)}
+        onSelectClub={handleSelectClub}
       />
     </div>
   );

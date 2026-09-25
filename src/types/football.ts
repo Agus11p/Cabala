@@ -65,6 +65,7 @@ export interface Club {
   primaryColor: string;
   secondaryColor: string;
   accentColor?: string;
+  zone?: 'A' | 'B';
   recentForm: ('W' | 'D' | 'L')[];
   seasonStats?: {
     played: number;
@@ -114,6 +115,69 @@ export interface Match {
   };
 }
 
+export interface ZoneStanding {
+  position: number; // 1 a 15
+  teamId: string;
+  team?: Club;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  points: number;
+  zone: 'A' | 'B';
+  zonePosition: number; // 1 a 15
+  phase: 'apertura' | 'clausura';
+  seasonYear: string;
+  form?: ('W' | 'D' | 'L')[];
+  fairPlayPoints?: number;
+  qualificationZone?: 'playoffs' | 'relegation';
+  qualificationReason?: string;
+  tieBreak?: {
+    appliedCriterion: 'points' | 'goal_diff' | 'goals_for' | 'head_to_head' | 'fair_play' | 'lottery_pending';
+    requiresLottery: boolean;
+    notes: string;
+  };
+}
+
+export interface AnnualStanding {
+  position: number; // 1 a 30
+  teamId: string;
+  team?: Club;
+  played: number; // Fases regulares únicamente (Apertura + Clausura)
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  points: number; // apertura.points + clausura.points
+  seasonYear: string;
+  form?: ('W' | 'D' | 'L')[];
+  qualificationZone?: 'campeon_liga' | 'libertadores' | 'sudamericana' | 'relegation';
+  qualificationReason?: string;
+  isLeagueChampion?: boolean; // 1° de la Tabla Anual
+}
+
+export interface AverageStanding {
+  position: number; // 1 a 30
+  teamId: string;
+  team?: Club;
+  seasons?: {
+    season2024Pts: number;
+    season2025Pts: number;
+    season2026Pts: number;
+  };
+  totalPoints: number;
+  totalPlayed: number;
+  average: number;
+  isRelegationZone?: boolean;
+  statusText?: string;
+}
+
+// Backwards-compatible StandingRow definition
 export interface StandingRow {
   position: number;
   teamId: string;
@@ -126,23 +190,57 @@ export interface StandingRow {
   goalsAgainst: number;
   goalDiff: number;
   points: number;
+  zone?: 'A' | 'B';
+  zonePosition?: number;
+  phase?: 'apertura' | 'clausura';
+  seasonYear?: string;
   form?: ('W' | 'D' | 'L')[];
-  qualificationZone?: 'libertadores' | 'sudamericana' | 'relegation';
+  fairPlayPoints?: number;
+  qualificationZone?: 'libertadores' | 'sudamericana' | 'playoffs' | 'relegation' | 'campeon_liga';
+  qualificationReason?: string;
+  tieBreak?: {
+    appliedCriterion: 'points' | 'goal_diff' | 'goals_for' | 'head_to_head' | 'fair_play' | 'lottery_pending';
+    requiresLottery: boolean;
+    notes: string;
+  };
 }
 
-export interface PromediosRow {
-  position: number;
-  teamId: string;
-  team?: Club;
-  seasons?: {
-    season2024Pts: number;
-    season2025Pts: number;
-    season2026Pts: number;
-  };
-  totalPoints: number;
-  totalPlayed: number;
-  average: number;
-  isRelegationZone?: boolean;
+export type PromediosRow = AverageStanding;
+
+export type UIState = 'LOADING' | 'SUCCESS' | 'EMPTY' | 'ERROR' | 'DATA_INCONSISTENCY';
+
+export interface DataInconsistencyRecord {
+  club: string;
+  teamId?: string;
+  field: string;
+  receivedValue: number | string;
+  expectedValue: number | string;
+  source: string;
+}
+
+export interface ZoneStandingsResponse {
+  seasonYear: string;
+  phase: 'apertura' | 'clausura';
+  zone: 'A' | 'B';
+  available: boolean;
+  message?: string;
+  data: ZoneStanding[];
+  inconsistencies?: DataInconsistencyRecord[];
+}
+
+export interface AnnualTableResponse {
+  seasonYear: string;
+  available: boolean;
+  message?: string;
+  data: AnnualStanding[];
+  inconsistencies?: DataInconsistencyRecord[];
+}
+
+export interface AverageTableResponse {
+  seasonYear: string;
+  available: boolean;
+  message?: string;
+  data: AverageStanding[];
 }
 
 export interface StandingsResponse {
@@ -151,9 +249,21 @@ export interface StandingsResponse {
   season?: string;
   message?: string;
   data: (StandingRow | PromediosRow)[];
+  zoneA?: ZoneStanding[];
+  zoneB?: ZoneStanding[];
+  inconsistencies?: DataInconsistencyRecord[];
+  dataState?: UIState;
 }
 
-export type TableType = 'apertura' | 'clausura' | 'anual' | 'promedios';
+export type TableType =
+  | 'apertura'
+  | 'clausura'
+  | 'anual'
+  | 'promedios'
+  | 'zonaA'
+  | 'zonaB'
+  | 'copas'
+  | 'playoffs';
 
 export interface UserProfile {
   id: string;
@@ -185,4 +295,11 @@ export interface NewsInsight {
   teamId?: string;
   author: string;
   imageUrl?: string;
+}
+
+export interface HeadToHeadMatch {
+  homeTeamId: string;
+  awayTeamId: string;
+  homeScore: number;
+  awayScore: number;
 }

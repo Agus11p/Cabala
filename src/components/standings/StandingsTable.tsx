@@ -1,13 +1,17 @@
 import React from 'react';
-import { StandingRow, PromediosRow, TableType } from '../../types/football';
+import { StandingRow, PromediosRow, TableType, UIState, DataInconsistencyRecord } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, AlertTriangle } from 'lucide-react';
 
 interface StandingsTableProps {
   tableType: TableType;
   data: (StandingRow | PromediosRow)[];
   onSelectClub: (teamId: string) => void;
   unavailableMessage?: string;
+  zoneTitle?: string;
+  zoneBadge?: 'A' | 'B';
+  dataState?: UIState;
+  inconsistencies?: DataInconsistencyRecord[];
 }
 
 export const StandingsTable: React.FC<StandingsTableProps> = ({
@@ -15,208 +19,220 @@ export const StandingsTable: React.FC<StandingsTableProps> = ({
   data,
   onSelectClub,
   unavailableMessage,
+  zoneTitle,
+  zoneBadge,
+  dataState,
+  inconsistencies,
 }) => {
   const isPromedios = tableType === 'promedios';
+  const isAnnual = tableType === 'anual';
+  const isZoneTable = tableType === 'apertura' || tableType === 'clausura' || Boolean(zoneBadge);
 
-  if (!data || data.length === 0) {
+  // DATA INCONSISTENCY STATE
+  if (dataState === 'DATA_INCONSISTENCY' && inconsistencies && inconsistencies.length > 0) {
     return (
-      <div className="rounded-2xl bg-[#121519] border border-[#22272E] p-10 text-center space-y-3">
-        <div className="w-12 h-12 rounded-2xl bg-[#181C22] border border-[#22272E] flex items-center justify-center mx-auto text-[#DCA842]">
+      <div className="rounded-2xl bg-[#121519] border border-[#E63946]/40 p-6 space-y-4">
+        <div className="flex items-center gap-3 pb-3 border-b border-white/[0.08]">
+          <div className="w-10 h-10 rounded-xl bg-[#E63946]/10 border border-[#E63946]/30 flex items-center justify-center text-[#E63946]">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-editorial font-bold text-base text-[#F1EDE6]">
+              Discrepancia Matemática en el Proveedor (DATA_INCONSISTENCY)
+            </h3>
+            <p className="text-xs text-[#8B949E]">
+              CÁBALA no altera silenciosamente datos con incoherencias recibidos de ESPN.
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead>
+              <tr className="border-b border-white/[0.08] text-[#8B949E]">
+                <th className="py-2 px-3 font-semibold">Club</th>
+                <th className="py-2 px-3 font-semibold">Campo Afectado</th>
+                <th className="py-2 px-3 text-center font-semibold">Recibido</th>
+                <th className="py-2 px-3 text-center font-semibold">Calculado</th>
+                <th className="py-2 px-3 font-semibold">Fuente</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.06] font-num">
+              {inconsistencies.map((inc, i) => (
+                <tr key={i} className="hover:bg-[#181C22]">
+                  <td className="py-2 px-3 font-bold text-[#F1EDE6]">{inc.club}</td>
+                  <td className="py-2 px-3 text-[#DCA842]">{inc.field}</td>
+                  <td className="py-2 px-3 text-center text-[#E63946] font-bold">{String(inc.receivedValue)}</td>
+                  <td className="py-2 px-3 text-center text-[#10B981] font-bold">{String(inc.expectedValue)}</td>
+                  <td className="py-2 px-3 text-[#8B949E] text-[11px] truncate">{inc.source}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // EMPTY / UNAVAILABLE STATE (ESPECIALLY PROMEDIOS)
+  if (!data || data.length === 0 || isPromedios) {
+    return (
+      <div className="rounded-2xl bg-[#121519] border border-white/[0.08] p-8 sm:p-12 text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#181C22] border border-white/[0.08] flex items-center justify-center mx-auto text-[#DCA842]">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
-          Datos no disponibles
-        </h3>
-        <p className="text-xs text-[#8B949E] max-w-md mx-auto leading-relaxed">
-          {unavailableMessage ||
-            'La tabla solicitada no está disponible en la fuente oficial en este momento. CÁBALA cumple la regla estricta de no inventar estadísticas ni posiciones.'}
-        </p>
+        <div className="space-y-1">
+          <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
+            {isPromedios ? 'Tabla de Promedios Oficiales No Disponible' : 'Datos no disponibles'}
+          </h3>
+          <p className="text-xs text-[#8B949E] max-w-lg mx-auto leading-relaxed">
+            {isPromedios
+              ? 'El proveedor de datos (ESPN) no provee actualmente la tabla de coeficientes acumulados de 3 temporadas (2024, 2025 y 2026). En cumplimiento estricto con las reglas de CÁBALA, no se inventan promedios simulados.'
+              : (unavailableMessage || 'La información requerida no está disponible en el proveedor en este momento.')}
+          </p>
+        </div>
+        {isPromedios && (
+          <div className="inline-block px-3.5 py-1.5 rounded-lg bg-[#181C22] border border-white/[0.08] text-[11px] text-[#DCA842] font-semibold">
+            Integridad Garantizada · Estado: available: false
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-[#121519] border border-[#22272E] shadow-lg">
+    <div className="overflow-hidden rounded-2xl bg-[#121519] border border-white/[0.08]">
+      {/* Optional Zone Header */}
+      {zoneTitle && (
+        <div className="flex items-center justify-between px-5 py-3.5 bg-[#15191F] border-b border-white/[0.08]">
+          <div className="flex items-center gap-2.5">
+            {zoneBadge && (
+              <span className="w-6 h-6 rounded-md bg-[#DCA842] text-[#0A0C0E] font-black text-xs flex items-center justify-center font-num">
+                {zoneBadge}
+              </span>
+            )}
+            <h3 className="font-editorial font-bold text-base text-[#F1EDE6] tracking-wide">
+              {zoneTitle}
+            </h3>
+          </div>
+          <span className="text-[11px] font-semibold text-[#8B949E] uppercase tracking-wider hidden sm:inline">
+            15 Clubes · 1° al 8° a Octavos
+          </span>
+        </div>
+      )}
+
+      {/* Main Table: Responsive & Column Adaptive */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-[#22272E] text-[11px] font-bold text-[#8B949E] uppercase tracking-wider bg-[#15191F]">
-              <th className="py-3.5 px-3 md:px-4 text-center w-12">Pos</th>
-              <th className="py-3.5 px-3 md:px-5 min-w-[150px] md:min-w-[200px]">Club</th>
-
-              {isPromedios ? (
-                <>
-                  <th className="py-3.5 px-2.5 text-center hidden md:table-cell font-num">23/24</th>
-                  <th className="py-3.5 px-2.5 text-center hidden md:table-cell font-num">24/25</th>
-                  <th className="py-3.5 px-2.5 text-center hidden md:table-cell font-num">25/26</th>
-                  <th className="py-3.5 px-3 text-center font-num">PJ</th>
-                  <th className="py-3.5 px-3 text-center font-num">PTS</th>
-                  <th className="py-3.5 px-4 md:px-6 text-right font-num text-[#DCA842]">Promedio</th>
-                </>
-              ) : (
-                <>
-                  <th className="py-3.5 px-3 text-center font-num">PJ</th>
-                  <th className="py-3.5 px-2.5 text-center hidden sm:table-cell font-num">PG</th>
-                  <th className="py-3.5 px-2.5 text-center hidden sm:table-cell font-num">PE</th>
-                  <th className="py-3.5 px-2.5 text-center hidden sm:table-cell font-num">PP</th>
-                  <th className="py-3.5 px-2.5 text-center hidden md:table-cell font-num">GF</th>
-                  <th className="py-3.5 px-2.5 text-center hidden md:table-cell font-num">GC</th>
-                  <th className="py-3.5 px-3 text-center font-num text-[#F1EDE6]">DG</th>
-                  <th className="py-3.5 px-4 md:px-6 text-right font-num text-[#DCA842]">PTS</th>
-                </>
-              )}
+            <tr className="border-b border-white/[0.08] text-[11px] font-bold text-[#8B949E] uppercase tracking-wider bg-[#15191F]">
+              <th className="py-3 px-2 sm:px-3 text-center w-10 sm:w-12">#</th>
+              <th className="py-3 px-3 sm:px-4 min-w-[140px] sm:min-w-[180px]">Club</th>
+              <th className="py-3 px-2 sm:px-3 text-center font-num">PJ</th>
+              <th className="py-3 px-2 text-center hidden sm:table-cell font-num">PG</th>
+              <th className="py-3 px-2 text-center hidden sm:table-cell font-num">PE</th>
+              <th className="py-3 px-2 text-center hidden sm:table-cell font-num">PP</th>
+              <th className="py-3 px-2 text-center hidden md:table-cell font-num text-[#8B949E]">GF</th>
+              <th className="py-3 px-2 text-center hidden md:table-cell font-num text-[#8B949E]">GC</th>
+              <th className="py-3 px-2.5 text-center font-num text-[#F1EDE6]">DG</th>
+              <th className="py-3 px-3 sm:px-5 text-right font-num text-[#DCA842] bg-white/[0.02]">PTS</th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-[#22272E] text-xs md:text-sm">
+          <tbody className="divide-y divide-white/[0.04] text-xs sm:text-sm">
             {data.map((row) => {
-              const team = row.team;
-              const teamName = team?.name || team?.shortName || `Club ${row.teamId}`;
-
-              if (isPromedios) {
-                const promRow = row as PromediosRow;
-                const isRelegation = promRow.isRelegationZone;
-                const isLeader = promRow.position === 1;
-
-                return (
-                  <tr
-                    key={promRow.teamId}
-                    onClick={() => onSelectClub(promRow.teamId)}
-                    className={`cursor-pointer transition-colors group ${
-                      isLeader
-                        ? 'bg-[#DCA842]/5 hover:bg-[#DCA842]/10'
-                        : isRelegation
-                        ? 'bg-rose-950/20 hover:bg-rose-950/30'
-                        : 'hover:bg-[#181C22]'
-                    }`}
-                  >
-                    {/* Position */}
-                    <td className="py-3.5 px-3 md:px-4 text-center font-num font-bold">
-                      <span
-                        className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-num ${
-                          isLeader
-                            ? 'bg-[#DCA842] text-[#0A0C0E] font-black'
-                            : isRelegation
-                            ? 'bg-[#E5484D]/20 text-[#E5484D] border border-[#E5484D]/40 font-bold'
-                            : 'text-[#8B949E]'
-                        }`}
-                      >
-                        {promRow.position}
-                      </span>
-                    </td>
-
-                    {/* Club */}
-                    <td className="py-3.5 px-3 md:px-5">
-                      <div className="flex items-center gap-3">
-                        <TeamBadge teamId={promRow.teamId} team={team} logoUrl={team?.logo} size="xs" />
-                        <span className="font-semibold text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors truncate">
-                          {teamName}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Seasons */}
-                    <td className="py-3.5 px-2.5 text-center hidden md:table-cell font-num text-[#8B949E]">
-                      {promRow.seasons?.season2024Pts ?? '-'}
-                    </td>
-                    <td className="py-3.5 px-2.5 text-center hidden md:table-cell font-num text-[#8B949E]">
-                      {promRow.seasons?.season2025Pts ?? '-'}
-                    </td>
-                    <td className="py-3.5 px-2.5 text-center hidden md:table-cell font-num text-[#8B949E]">
-                      {promRow.seasons?.season2026Pts ?? '-'}
-                    </td>
-
-                    {/* PJ */}
-                    <td className="py-3.5 px-3 text-center font-num text-[#8B949E]">
-                      {promRow.totalPlayed}
-                    </td>
-
-                    {/* PTS */}
-                    <td className="py-3.5 px-3 text-center font-num font-bold text-[#F1EDE6]">
-                      {promRow.totalPoints}
-                    </td>
-
-                    {/* Average */}
-                    <td className="py-3.5 px-4 md:px-6 text-right font-num font-black text-sm md:text-base text-[#DCA842]">
-                      {promRow.average.toFixed(3)}
-                    </td>
-                  </tr>
-                );
-              }
-
-              // Standard Standing Row
               const standRow = row as StandingRow;
-              const isFirst = standRow.position === 1;
-              const isLibertadores = standRow.qualificationZone === 'libertadores';
-              const isSudamericana = standRow.qualificationZone === 'sudamericana';
-              const isRelegation = standRow.qualificationZone === 'relegation';
+              const team = standRow.team;
+              const teamName = team?.shortName || team?.name || `Club ${standRow.teamId}`;
+
+              const isPlayoffHost = isZoneTable && standRow.position <= 4;
+              const isPlayoffs = isZoneTable && standRow.position <= 8;
+              const isChampion = isAnnual && standRow.position === 1;
+              const isLibertadores = isAnnual && (standRow.qualificationZone === 'libertadores' || (standRow.position >= 2 && standRow.position <= 4));
+              const isSudamericana = isAnnual && (standRow.qualificationZone === 'sudamericana' || (standRow.position >= 5 && standRow.position <= 10));
+              const isRelegation = (isAnnual && standRow.position >= 29) || standRow.qualificationZone === 'relegation';
+
+              // Discrete indicator color
+              let indicatorColor = 'bg-transparent';
+              if (isChampion) indicatorColor = 'bg-[#DCA842]';
+              else if (isPlayoffHost) indicatorColor = 'bg-[#DCA842]';
+              else if (isPlayoffs) indicatorColor = 'bg-[#10B981]';
+              else if (isLibertadores) indicatorColor = 'bg-[#10B981]';
+              else if (isSudamericana) indicatorColor = 'bg-[#4A90E2]';
+              else if (isRelegation) indicatorColor = 'bg-[#E63946]';
+
+              // DG format
+              const dgText = standRow.goalDiff > 0 ? `+${standRow.goalDiff}` : `${standRow.goalDiff}`;
+              const dgColor = standRow.goalDiff > 0
+                ? 'text-[#10B981]'
+                : standRow.goalDiff < 0
+                ? 'text-[#E63946]'
+                : 'text-[#8B949E]';
 
               return (
                 <tr
                   key={standRow.teamId}
                   onClick={() => onSelectClub(standRow.teamId)}
-                  className={`cursor-pointer transition-colors group ${
-                    isFirst
-                      ? 'bg-[#DCA842]/5 hover:bg-[#DCA842]/10'
-                      : isRelegation
-                      ? 'bg-rose-950/20 hover:bg-rose-950/30'
-                      : 'hover:bg-[#181C22]'
-                  }`}
+                  className="cursor-pointer transition-colors hover:bg-white/[0.03] group relative"
                 >
-                  {/* Position */}
-                  <td className="py-3.5 px-3 md:px-4 text-center font-num font-bold">
+                  {/* Position with subtle left accent line */}
+                  <td className="py-3 px-2 sm:px-3 text-center relative">
                     <span
-                      className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-num ${
-                        isFirst
-                          ? 'bg-[#DCA842] text-[#0A0C0E] font-black'
-                          : isLibertadores
-                          ? 'text-[#30A46C] font-black'
-                          : isSudamericana
-                          ? 'text-[#3B82F6] font-bold'
-                          : isRelegation
-                          ? 'bg-[#E5484D]/20 text-[#E5484D] border border-[#E5484D]/40 font-bold'
-                          : 'text-[#8B949E]'
-                      }`}
-                    >
+                      aria-hidden="true"
+                      className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r ${indicatorColor}`}
+                    />
+                    <span className="font-num font-bold text-xs sm:text-sm text-[#8B949E] group-hover:text-[#F1EDE6] transition-colors tabular-nums">
                       {standRow.position}
                     </span>
                   </td>
 
                   {/* Club */}
-                  <td className="py-3.5 px-3 md:px-5">
-                    <div className="flex items-center gap-3">
+                  <td className="py-3 px-3 sm:px-4">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
                       <TeamBadge teamId={standRow.teamId} team={team} logoUrl={team?.logo} size="xs" />
-                      <span className="font-semibold text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors truncate">
+                      <span className="font-medium text-xs sm:text-sm text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors truncate">
                         {teamName}
                       </span>
                     </div>
                   </td>
 
-                  {/* Stats */}
-                  <td className="py-3.5 px-3 text-center font-num text-[#8B949E]">
+                  {/* PJ */}
+                  <td className="py-3 px-2 sm:px-3 text-center font-num text-[#8B949E] text-xs sm:text-sm">
                     {standRow.played}
                   </td>
-                  <td className="py-3.5 px-2.5 text-center hidden sm:table-cell font-num text-[#8B949E]">
+
+                  {/* PG (sm+) */}
+                  <td className="py-3 px-2 text-center hidden sm:table-cell font-num text-[#8B949E] text-xs sm:text-sm">
                     {standRow.won}
                   </td>
-                  <td className="py-3.5 px-2.5 text-center hidden sm:table-cell font-num text-[#8B949E]">
+
+                  {/* PE (sm+) */}
+                  <td className="py-3 px-2 text-center hidden sm:table-cell font-num text-[#8B949E] text-xs sm:text-sm">
                     {standRow.drawn}
                   </td>
-                  <td className="py-3.5 px-2.5 text-center hidden sm:table-cell font-num text-[#8B949E]">
+
+                  {/* PP (sm+) */}
+                  <td className="py-3 px-2 text-center hidden sm:table-cell font-num text-[#8B949E] text-xs sm:text-sm">
                     {standRow.lost}
                   </td>
-                  <td className="py-3.5 px-2.5 text-center hidden md:table-cell font-num text-[#8B949E]">
+
+                  {/* GF (md+) */}
+                  <td className="py-3 px-2 text-center hidden md:table-cell font-num text-[#8B949E] text-xs">
                     {standRow.goalsFor}
                   </td>
-                  <td className="py-3.5 px-2.5 text-center hidden md:table-cell font-num text-[#8B949E]">
+
+                  {/* GC (md+) */}
+                  <td className="py-3 px-2 text-center hidden md:table-cell font-num text-[#8B949E] text-xs">
                     {standRow.goalsAgainst}
                   </td>
-                  <td className="py-3.5 px-3 text-center font-num font-medium text-[#F1EDE6]">
-                    {standRow.goalDiff > 0 ? `+${standRow.goalDiff}` : standRow.goalDiff}
+
+                  {/* DG */}
+                  <td className={`py-3 px-2.5 text-center font-num font-bold text-xs sm:text-sm ${dgColor}`}>
+                    {dgText}
                   </td>
 
-                  {/* PTS */}
-                  <td className="py-3.5 px-4 md:px-6 text-right font-num font-black text-sm md:text-base text-[#DCA842]">
+                  {/* PTS (Visual Hero) */}
+                  <td className="py-3 px-3 sm:px-5 text-right font-num font-black text-sm sm:text-base text-[#DCA842] bg-white/[0.02] tabular-nums">
                     {standRow.points}
                   </td>
                 </tr>
@@ -226,16 +242,37 @@ export const StandingsTable: React.FC<StandingsTableProps> = ({
         </table>
       </div>
 
-      {/* Qualification legend */}
-      {!isPromedios && (
-        <div className="border-t border-[#22272E] px-4 py-3 bg-[#121519] flex flex-wrap items-center gap-6 text-[11px] text-[#8B949E]">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-xs bg-[#30A46C]" />
-            <span>Zona Clasificación Copa Libertadores</span>
+      {/* Discrete Editorial Legend */}
+      {isZoneTable && (
+        <div className="border-t border-white/[0.08] px-4 py-2.5 bg-[#121519] flex flex-wrap items-center gap-5 text-[11px] text-[#8B949E]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-xs bg-[#DCA842]" />
+            <span>1° al 4°: Localía en Octavos</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-xs bg-[#3B82F6]" />
-            <span>Zona Clasificación Copa Sudamericana</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-xs bg-[#10B981]" />
+            <span>5° al 8°: Clasificación a Octavos</span>
+          </div>
+        </div>
+      )}
+
+      {isAnnual && (
+        <div className="border-t border-white/[0.08] px-4 py-2.5 bg-[#121519] flex flex-wrap items-center gap-5 text-[11px] text-[#8B949E]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-xs bg-[#DCA842]" />
+            <span>1°: Campeón de Liga</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-xs bg-[#10B981]" />
+            <span>Libertadores 2027</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-xs bg-[#4A90E2]" />
+            <span>Sudamericana 2027</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-xs bg-[#E63946]" />
+            <span>Zona de Descenso (30°)</span>
           </div>
         </div>
       )}

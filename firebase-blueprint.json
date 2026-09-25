@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "SeasonConfig": {
+      "title": "Season Configuration",
+      "description": "Configuration metadata for an AFA Primera División season",
+      "type": "object",
+      "properties": {
+        "seasonYear": { "type": "string" },
+        "name": { "type": "string" },
+        "teamsCount": { "type": "number" },
+        "activeCompetitions": { "type": "array" },
+        "rulesVersion": { "type": "string" }
+      },
+      "required": ["seasonYear", "name", "teamsCount"]
+    },
+    "CompetitionRule": {
+      "title": "Competition Ruleset",
+      "description": "Deterministic competition rules for a tournament (Apertura, Clausura, Anual, etc.)",
+      "type": "object",
+      "properties": {
+        "competitionId": { "type": "string" },
+        "seasonYear": { "type": "string" },
+        "format": { "type": "string" },
+        "zonesCount": { "type": "number" },
+        "teamsPerZone": { "type": "number" },
+        "regularRounds": { "type": "number" },
+        "playoffQualifiersPerZone": { "type": "number" },
+        "rulesSummary": { "type": "string" }
+      },
+      "required": ["competitionId", "seasonYear", "format"]
+    },
+    "UserCabalaProfile": {
+      "title": "User Profile",
+      "description": "User profile with favorite club and competitive stats",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string", "maxLength": 50 },
+        "favoriteClubId": { "type": "string", "maxLength": 64 },
+        "elo": { "type": "number" },
+        "rankTitle": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "username"]
+    },
+    "AiFootballQuery": {
+      "title": "AI Football Query Log",
+      "description": "Log of user football queries and tool grounded answers",
+      "type": "object",
+      "properties": {
+        "queryId": { "type": "string" },
+        "userId": { "type": "string" },
+        "query": { "type": "string", "maxLength": 1000 },
+        "modelUsed": { "type": "string" },
+        "toolsCalled": { "type": "array" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["queryId", "query", "modelUsed"]
+    }
+  },
+  "firestore": {
+    "/seasons/{seasonYear}": {
+      "schema": "SeasonConfig",
+      "description": "Official seasons config"
+    },
+    "/rules/{ruleId}": {
+      "schema": "CompetitionRule",
+      "description": "Competition official regulations"
+    },
+    "/users/{userId}": {
+      "schema": "UserCabalaProfile",
+      "description": "Public user profile and favorite club"
+    },
+    "/ai_queries/{queryId}": {
+      "schema": "AiFootballQuery",
+      "description": "User interaction with Cábala AI Assistant"
+    }
+  }
+}

@@ -17,8 +17,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const homeTeam = match.homeTeam;
   const awayTeam = match.awayTeam;
 
-  const homeName = homeTeam?.name || homeTeam?.shortName || match.homeTeamId;
-  const awayName = awayTeam?.name || awayTeam?.shortName || match.awayTeamId;
+  const homeName = homeTeam?.shortName || homeTeam?.name || match.homeTeamId;
+  const awayName = awayTeam?.shortName || awayTeam?.name || match.awayTeamId;
 
   const isLive = match.status === 'live';
   const isFinished = match.status === 'finished';
@@ -27,40 +27,42 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     if (onClick) onClick(match.id);
   };
 
+  // FEATURED MATCH HERO CARD
   if (featured) {
     return (
       <div
         onClick={handleClick}
         className={`relative overflow-hidden rounded-2xl bg-[#121519] border transition-all duration-200 cursor-pointer group ${
           isLive
-            ? 'border-[#30A46C]/50 shadow-lg shadow-black/40'
-            : 'border-[#22272E] hover:border-[#DCA842]/50 hover:bg-[#15191F]'
-        } p-6 md:p-8`}
+            ? 'border-[#10B981]/50 shadow-md shadow-[#10B981]/5'
+            : 'border-white/[0.08] hover:border-[#DCA842]/40 hover:bg-[#15191F]'
+        } p-5 sm:p-7`}
       >
-        {/* Subtle accent bar if live */}
         {isLive && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-[#30A46C]" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#10B981]" />
         )}
 
-        {/* Top Header: Tournament, round & live badge */}
-        <div className="flex items-center justify-between text-xs text-[#8B949E] mb-6 border-b border-[#22272E] pb-3">
-          <div className="flex items-center gap-2 tracking-wide">
-            <span className="font-bold text-[#F1EDE6] uppercase tracking-wider">{match.tournament}</span>
-            <span aria-hidden="true" className="text-[#3A424D]">/</span>
-            <span className="text-[#8B949E]">{match.round}</span>
+        {/* Top Header: Tournament, round & status */}
+        <div className="flex items-center justify-between text-xs text-[#8B949E] mb-5 border-b border-white/[0.06] pb-3">
+          <div className="flex items-center gap-2 tracking-wide font-medium">
+            <span className="font-bold text-[#F1EDE6] uppercase tracking-wider text-[11px]">
+              {match.tournament || 'Liga Profesional'}
+            </span>
+            <span aria-hidden="true" className="text-white/20">/</span>
+            <span className="text-[#8B949E] text-xs">{match.round || 'Fecha Oficial'}</span>
           </div>
           <StatusIndicator status={match.status} minute={match.minute} time={match.time} />
         </div>
 
-        {/* Teams & Scoreboard - Massive Editorial Stature */}
-        <div className="grid grid-cols-1 md:grid-cols-7 items-center gap-6 my-4">
+        {/* Teams & Scoreboard Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-7 items-center gap-5 my-2">
           {/* Home team */}
-          <div className="md:col-span-3 flex md:flex-row flex-col-reverse items-center md:justify-end gap-4 md:text-right text-center">
+          <div className="sm:col-span-3 flex sm:flex-row flex-col-reverse items-center sm:justify-end gap-3 sm:text-right text-center">
             <div className="min-w-0">
-              <span className="block font-editorial font-extrabold text-xl md:text-2xl text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors leading-tight">
+              <span className="block font-editorial font-bold text-lg sm:text-xl text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors leading-tight">
                 {homeName}
               </span>
-              <span className="text-xs text-[#8B949E] font-medium tracking-wider uppercase mt-0.5 block">
+              <span className="text-[10px] text-[#8B949E] font-medium tracking-wider uppercase mt-0.5 block">
                 Local
               </span>
             </div>
@@ -68,29 +70,29 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               teamId={match.homeTeamId}
               team={homeTeam}
               logoUrl={homeTeam?.logo}
-              size="lg"
-              className="transition-transform group-hover:scale-105 shrink-0"
+              size="md"
+              className="shrink-0"
             />
           </div>
 
           {/* Central Score / Time Display */}
-          <div className="md:col-span-1 flex flex-col items-center justify-center py-2">
+          <div className="sm:col-span-1 flex flex-col items-center justify-center py-1">
             {isLive || isFinished ? (
-              <div className="flex items-baseline justify-center gap-3 font-num font-black text-5xl md:text-6xl text-[#F1EDE6] tabular-nums tracking-tight">
-                <span className={isLive && match.homeScore !== null && match.homeScore > (match.awayScore ?? 0) ? 'text-[#30A46C]' : ''}>
+              <div className="flex items-baseline justify-center gap-2.5 font-num font-black text-4xl sm:text-5xl text-[#F1EDE6] tabular-nums tracking-tight">
+                <span className={isLive && (match.homeScore ?? 0) > (match.awayScore ?? 0) ? 'text-[#10B981]' : ''}>
                   {match.homeScore ?? 0}
                 </span>
-                <span className="text-[#3A424D] text-3xl font-light select-none">—</span>
-                <span className={isLive && match.awayScore !== null && match.awayScore > (match.homeScore ?? 0) ? 'text-[#30A46C]' : ''}>
+                <span className="text-white/20 text-2xl font-light select-none">—</span>
+                <span className={isLive && (match.awayScore ?? 0) > (match.homeScore ?? 0) ? 'text-[#10B981]' : ''}>
                   {match.awayScore ?? 0}
                 </span>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center">
-                <span className="font-num text-3xl font-bold text-[#F1EDE6] px-3.5 py-1 rounded-lg bg-[#181C22] border border-[#22272E]">
+                <span className="font-num text-2xl sm:text-3xl font-bold text-[#F1EDE6] px-3 py-1 rounded-lg bg-[#181C22] border border-white/[0.08]">
                   {match.time || '--:--'}
                 </span>
-                <span className="text-[11px] text-[#8B949E] mt-1.5 font-medium tracking-wide">
+                <span className="text-[10px] text-[#8B949E] mt-1 font-medium tracking-wide">
                   {match.date}
                 </span>
               </div>
@@ -98,63 +100,63 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           </div>
 
           {/* Away team */}
-          <div className="md:col-span-3 flex md:flex-row flex-col items-center md:justify-start gap-4 md:text-left text-center">
+          <div className="sm:col-span-3 flex sm:flex-row flex-col items-center sm:justify-start gap-3 sm:text-left text-center">
             <TeamBadge
               teamId={match.awayTeamId}
               team={awayTeam}
               logoUrl={awayTeam?.logo}
-              size="lg"
-              className="transition-transform group-hover:scale-105 shrink-0"
+              size="md"
+              className="shrink-0"
             />
             <div className="min-w-0">
-              <span className="block font-editorial font-extrabold text-xl md:text-2xl text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors leading-tight">
+              <span className="block font-editorial font-bold text-lg sm:text-xl text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors leading-tight">
                 {awayName}
               </span>
-              <span className="text-xs text-[#8B949E] font-medium tracking-wider uppercase mt-0.5 block">
+              <span className="text-[10px] text-[#8B949E] font-medium tracking-wider uppercase mt-0.5 block">
                 Visitante
               </span>
             </div>
           </div>
         </div>
 
-        {/* Bottom meta: Stadium & Details affordance */}
-        <div className="mt-6 pt-4 border-t border-[#22272E] flex items-center justify-between text-xs text-[#8B949E]">
-          <span className="truncate max-w-[280px] font-medium">{match.stadium || 'Estadio Oficial'}</span>
-          <span className="text-xs font-semibold text-[#8B949E] group-hover:text-[#DCA842] transition-colors flex items-center gap-1.5">
-            <span>Ver ficha del partido</span>
-            <span className="text-[#DCA842]">→</span>
+        {/* Bottom meta */}
+        <div className="mt-5 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-[#8B949E]">
+          <span className="truncate max-w-[240px]">{match.stadium || 'Estadio Oficial'}</span>
+          <span className="font-semibold text-[#8B949E] group-hover:text-[#DCA842] transition-colors flex items-center gap-1">
+            <span>Ficha del encuentro</span>
+            <span>→</span>
           </span>
         </div>
       </div>
     );
   }
 
-  // Standard agenda row / card
+  // STANDARD COMPACT FIXTURE CARD (HIGH DENSITY)
   return (
     <div
       onClick={handleClick}
-      className={`rounded-xl bg-[#121519] border transition-all duration-150 cursor-pointer p-4 group ${
+      className={`rounded-xl bg-[#121519] border transition-all duration-150 cursor-pointer p-3 sm:p-3.5 group ${
         isLive
-          ? 'border-[#30A46C]/40 hover:border-[#30A46C]'
-          : 'border-[#22272E] hover:border-[#DCA842]/40 hover:bg-[#16191F]'
+          ? 'border-[#10B981]/40 hover:border-[#10B981]'
+          : 'border-white/[0.08] hover:border-[#DCA842]/40 hover:bg-[#15191F]'
       }`}
     >
-      <div className="flex items-center justify-between text-xs text-[#8B949E] mb-3 border-b border-[#22272E]/60 pb-2">
-        <span className="truncate font-medium">{match.tournament} · {match.round}</span>
+      <div className="flex items-center justify-between text-[11px] text-[#8B949E] mb-2.5 pb-1.5 border-b border-white/[0.04]">
+        <span className="truncate font-medium">{match.tournament || 'Liga Profesional'} · {match.round || 'Fecha Oficial'}</span>
         <StatusIndicator status={match.status} minute={match.minute} time={match.time} />
       </div>
 
-      <div className="space-y-2.5">
-        {/* Home Row */}
+      <div className="space-y-2">
+        {/* Local */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <TeamBadge teamId={match.homeTeamId} team={homeTeam} logoUrl={homeTeam?.logo} size="sm" />
-            <span className="text-sm font-semibold text-[#F1EDE6] truncate group-hover:text-[#DCA842] transition-colors">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <TeamBadge teamId={match.homeTeamId} team={homeTeam} logoUrl={homeTeam?.logo} size="xs" />
+            <span className="text-xs sm:text-sm font-medium text-[#F1EDE6] truncate group-hover:text-[#DCA842] transition-colors">
               {homeName}
             </span>
           </div>
           {(isLive || isFinished) ? (
-            <span className={`font-num text-xl font-bold tabular-nums ${isLive && (match.homeScore ?? 0) > (match.awayScore ?? 0) ? 'text-[#30A46C]' : 'text-[#F1EDE6]'}`}>
+            <span className={`font-num text-lg font-bold tabular-nums ${isLive && (match.homeScore ?? 0) > (match.awayScore ?? 0) ? 'text-[#10B981]' : 'text-[#F1EDE6]'}`}>
               {match.homeScore ?? 0}
             </span>
           ) : (
@@ -162,26 +164,26 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           )}
         </div>
 
-        {/* Away Row */}
+        {/* Visitante */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <TeamBadge teamId={match.awayTeamId} team={awayTeam} logoUrl={awayTeam?.logo} size="sm" />
-            <span className="text-sm font-semibold text-[#F1EDE6] truncate group-hover:text-[#DCA842] transition-colors">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <TeamBadge teamId={match.awayTeamId} team={awayTeam} logoUrl={awayTeam?.logo} size="xs" />
+            <span className="text-xs sm:text-sm font-medium text-[#F1EDE6] truncate group-hover:text-[#DCA842] transition-colors">
               {awayName}
             </span>
           </div>
           {(isLive || isFinished) && (
-            <span className={`font-num text-xl font-bold tabular-nums ${isLive && (match.awayScore ?? 0) > (match.homeScore ?? 0) ? 'text-[#30A46C]' : 'text-[#F1EDE6]'}`}>
+            <span className={`font-num text-lg font-bold tabular-nums ${isLive && (match.awayScore ?? 0) > (match.homeScore ?? 0) ? 'text-[#10B981]' : 'text-[#F1EDE6]'}`}>
               {match.awayScore ?? 0}
             </span>
           )}
         </div>
       </div>
 
-      <div className="mt-3 pt-2 border-t border-[#22272E]/40 flex items-center justify-between text-[11px] text-[#8B949E]">
+      <div className="mt-2.5 pt-2 border-t border-white/[0.04] flex items-center justify-between text-[10px] text-[#8B949E]">
         <span className="truncate">{match.stadium || 'Estadio Oficial'}</span>
-        <span className="text-[#8B949E] group-hover:text-[#DCA842] transition-colors text-[11px] font-medium">
-          Ficha →
+        <span className="text-[#8B949E] group-hover:text-[#DCA842] transition-colors font-medium">
+          Ver ficha →
         </span>
       </div>
     </div>

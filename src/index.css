@@ -2,22 +2,36 @@
 
 @layer base {
   :root {
-    --bg-base: #0A0C0E;
-    --surface: #121519;
-    --cards: #181C22;
-    --border-subtle: #22272E;
-    --text-primary: #F1EDE6;
-    --text-secondary: #8B949E;
-    --accent-gold: #DCA842;
-    --status-live: #30A46C;
-    --status-alert: #E5484D;
+    --cabala-bg: #0a0c0e;
+    --cabala-surface: #121519;
+    --cabala-card: #181c22;
+    --cabala-border: rgba(255, 255, 255, 0.08);
+    --cabala-offwhite: #f1ede6;
+    --cabala-gold: #dca842;
+    --cabala-red: #e63946;
+    --cabala-green: #10b981;
+    --cabala-blue: #4a90e2;
+    --cabala-muted: #8b949e;
+
+    /* Legacy aliases */
+    --bg-base: var(--cabala-bg);
+    --surface: var(--cabala-surface);
+    --cards: var(--cabala-card);
+    --border-subtle: #22272e;
+    --text-primary: var(--cabala-offwhite);
+    --text-secondary: var(--cabala-muted);
+    --accent-gold: var(--cabala-gold);
+    --status-live: var(--cabala-green);
+    --status-alert: var(--cabala-red);
   }
 
   body {
-    background-color: #0A0C0E;
-    color: #F1EDE6;
-    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    background-color: #0a0c0e;
+    color: #f1ede6;
+    font-family: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
@@ -29,37 +43,43 @@
 .font-num {
   font-family: 'Bebas Neue', 'Space Grotesk', sans-serif;
   letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Fine hairline dividers */
+/* Tabular nums utility */
+.tabular-numbers {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hairline borders */
 .hairline-b {
-  border-bottom: 1px solid #22272E;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .hairline-t {
-  border-top: 1px solid #22272E;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .hairline-r {
-  border-right: 1px solid #22272E;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .hairline-l {
-  border-left: 1px solid #22272E;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Custom subtle scrollbar */
+/* Subtle, dignified scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0C0E;
+  background: #0a0c0e;
 }
 ::-webkit-scrollbar-thumb {
-  background: #22272E;
-  border-radius: 2px;
+  background: #22272e;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2C323B;
+  background: #2c323b;
 }

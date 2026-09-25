@@ -1,219 +1,178 @@
 import React, { useState } from 'react';
 import { Team } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
-import { Search } from 'lucide-react';
+import { Search, MapPin } from 'lucide-react';
 
 interface ClubListProps {
   teams: Team[];
   onSelectClub: (clubId: string) => void;
 }
 
+type ZoneFilter = 'all' | 'A' | 'B';
+
 export const ClubList: React.FC<ClubListProps> = ({ teams, onSelectClub }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeZone, setActiveZone] = useState<ZoneFilter>('all');
 
-  const filteredTeams = teams.filter((t) =>
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.shortName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (t.neighborhood && t.neighborhood.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (t.stadium && t.stadium.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const renderFormBadge = (formChar: 'W' | 'D' | 'L', idx: number) => {
-    let letter = 'V';
-    let style = 'bg-[#30A46C]/15 text-[#30A46C] border-[#30A46C]/30';
-
-    if (formChar === 'D') {
-      letter = 'E';
-      style = 'bg-[#8B949E]/15 text-[#8B949E] border-[#8B949E]/30';
-    } else if (formChar === 'L') {
-      letter = 'D';
-      style = 'bg-[#E5484D]/15 text-[#E5484D] border-[#E5484D]/30';
+  const filteredTeams = teams.filter((t) => {
+    // Zone filter
+    if (activeZone !== 'all' && t.zone !== activeZone) {
+      return false;
     }
 
+    // Search query
+    if (searchQuery.trim() === '') return true;
+    const q = searchQuery.toLowerCase();
     return (
-      <span
-        key={idx}
-        className={`w-4 h-4 rounded-xs border flex items-center justify-center text-[10px] font-bold font-num ${style}`}
-      >
-        {letter}
-      </span>
+      t.name.toLowerCase().includes(q) ||
+      t.shortName.toLowerCase().includes(q) ||
+      t.city.toLowerCase().includes(q) ||
+      (t.stadium && t.stadium.toLowerCase().includes(q))
     );
-  };
+  });
 
-  const isBrowsingAll = searchQuery.trim() === '';
-  const spotlightTeams = isBrowsingAll ? teams.slice(0, 2) : [];
-  const regularTeams = isBrowsingAll ? teams.slice(2) : filteredTeams;
+  const zoneACount = teams.filter((t) => t.zone === 'A').length;
+  const zoneBCount = teams.filter((t) => t.zone === 'B').length;
 
   return (
     <div className="space-y-6">
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B949E]" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar institución por nombre, ciudad o estadio..."
-          className="w-full pl-11 pr-4 py-3 bg-[#121519] border border-[#22272E] focus:border-[#DCA842] rounded-2xl text-sm text-[#F1EDE6] placeholder-[#8B949E] focus:outline-hidden transition-colors"
-        />
+      {/* Controls: Search and Zone Filter */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        {/* Search */}
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B949E]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar club por nombre, ciudad o estadio..."
+            className="w-full pl-10 pr-4 py-2.5 bg-[#121519] border border-white/[0.08] focus:border-[#DCA842] rounded-xl text-xs sm:text-sm text-[#F1EDE6] placeholder-[#8B949E] focus:outline-hidden transition-colors"
+          />
+        </div>
+
+        {/* Zone Segmented Control */}
+        <div className="flex items-center gap-1 p-1 bg-[#121519] border border-white/[0.08] rounded-xl text-xs font-semibold self-start sm:self-auto">
+          <button
+            onClick={() => setActiveZone('all')}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${
+              activeZone === 'all'
+                ? 'bg-[#181C22] text-[#DCA842] font-bold shadow-xs'
+                : 'text-[#8B949E] hover:text-[#F1EDE6]'
+            }`}
+          >
+            Todos ({teams.length})
+          </button>
+          <button
+            onClick={() => setActiveZone('A')}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${
+              activeZone === 'A'
+                ? 'bg-[#181C22] text-[#DCA842] font-bold shadow-xs'
+                : 'text-[#8B949E] hover:text-[#F1EDE6]'
+            }`}
+          >
+            Zona A ({zoneACount})
+          </button>
+          <button
+            onClick={() => setActiveZone('B')}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${
+              activeZone === 'B'
+                ? 'bg-[#181C22] text-[#DCA842] font-bold shadow-xs'
+                : 'text-[#8B949E] hover:text-[#F1EDE6]'
+            }`}
+          >
+            Zona B ({zoneBCount})
+          </button>
+        </div>
       </div>
 
-      {/* SPOTLIGHT TEAMS */}
-      {isBrowsingAll && spotlightTeams.length > 0 && (
-        <div className="space-y-3">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[#8B949E]">
-            Instituciones de Primera División
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {spotlightTeams.map((team) => (
+      {/* Grid of 30 Argentine Clubs */}
+      {filteredTeams.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {filteredTeams.map((team) => {
+            const hasStats = Boolean(team.seasonStats && team.seasonStats.played > 0);
+            const stats = team.seasonStats;
+
+            return (
               <div
                 key={team.id}
                 onClick={() => onSelectClub(team.id)}
-                className="p-6 rounded-3xl bg-[#121519] border border-[#22272E] hover:border-[#DCA842]/50 hover:bg-[#15191F] transition-all cursor-pointer group flex flex-col justify-between"
+                className="p-4 sm:p-5 rounded-2xl bg-[#121519] border border-white/[0.08] hover:border-[#DCA842]/40 hover:bg-[#15191F] transition-all cursor-pointer group flex flex-col justify-between"
               >
+                {/* Header */}
                 <div>
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <TeamBadge
                         teamId={team.id}
                         team={team}
                         logoUrl={team.logo}
-                        size="lg"
-                        className="group-hover:scale-105 transition-transform shrink-0"
+                        size="md"
+                        className="shrink-0"
                       />
-                      <div>
-                        {team.seasonStats && team.seasonStats.position > 0 ? (
-                          <span className="font-num text-xs font-bold text-[#DCA842] px-2 py-0.5 rounded bg-[#181C22] border border-[#22272E] inline-block mb-1">
-                            #{team.seasonStats.position} TORNEO
-                          </span>
-                        ) : (
-                          <span className="font-num text-xs font-bold text-[#8B949E] px-2 py-0.5 rounded bg-[#181C22] border border-[#22272E] inline-block mb-1">
-                            LPF AFA
-                          </span>
-                        )}
-                        <h3 className="font-editorial font-black text-xl text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors leading-tight">
-                          {team.name}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          {team.zone && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/[0.05] text-[#DCA842] border border-white/[0.08]">
+                              Zona {team.zone}
+                            </span>
+                          )}
+                          {hasStats && stats && stats.position > 0 && (
+                            <span className="text-[10px] font-num text-[#8B949E]">
+                              #{stats.position}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="font-editorial font-bold text-base text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors leading-snug truncate">
+                          {team.shortName || team.name}
                         </h3>
-                        <span className="text-xs text-[#8B949E]">
-                          {team.city || 'Argentina'}
+                        <span className="text-[11px] text-[#8B949E] flex items-center gap-1 mt-0.5 truncate">
+                          <MapPin className="w-3 h-3 text-[#DCA842] shrink-0" />
+                          <span>{team.city || 'Argentina'}</span>
                         </span>
                       </div>
                     </div>
 
-                    {team.seasonStats && team.seasonStats.points > 0 && (
+                    {/* Points highlight if available */}
+                    {hasStats && stats && (
                       <div className="text-right shrink-0">
-                        <span className="text-[10px] uppercase font-bold text-[#8B949E] block">Puntos</span>
-                        <span className="font-num font-black text-3xl text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors">
-                          {team.seasonStats.points}
+                        <span className="font-num font-black text-xl text-[#F1EDE6] group-hover:text-[#DCA842] tabular-nums block">
+                          {stats.points}
+                        </span>
+                        <span className="text-[9px] uppercase font-bold text-[#8B949E] block -mt-1">
+                          pts
                         </span>
                       </div>
                     )}
                   </div>
-
-                  <div className="text-xs text-[#8B949E] flex items-center justify-between mb-4 border-t border-[#22272E] pt-3">
-                    <span className="truncate">{team.stadium || 'Estadio Oficial'}</span>
-                    <span className="text-[11px] font-num text-[#8B949E]">{team.code}</span>
-                  </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-[#22272E] text-xs">
-                  {team.seasonStats && team.seasonStats.played > 0 ? (
-                    <div className="flex items-center gap-4 text-xs font-num">
-                      <span className="text-[#8B949E]"><strong className="text-[#F1EDE6]">{team.seasonStats.played}</strong> PJ</span>
-                      <span className="text-[#8B949E]"><strong className="text-[#30A46C]">{team.seasonStats.won}</strong> PG</span>
-                      <span className="text-[#8B949E]"><strong className="text-[#F1EDE6]">{team.seasonStats.drawn}</strong> PE</span>
+                {/* Footer Metrics */}
+                <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-[#8B949E]">
+                  {hasStats && stats ? (
+                    <div className="flex items-center gap-3 font-num">
+                      <span><strong className="text-[#F1EDE6]">{stats.played}</strong> PJ</span>
+                      <span><strong className="text-[#10B981]">{stats.won}</strong> PG</span>
+                      <span><strong className="text-[#F1EDE6]">{stats.drawn}</strong> PE</span>
+                      <span><strong className="text-[#E63946]">{stats.lost}</strong> PP</span>
                     </div>
                   ) : (
-                    <span className="text-xs text-[#8B949E]">Club Oficial Primera División</span>
+                    <span className="truncate max-w-[180px]">{team.stadium || 'Estadio Oficial'}</span>
                   )}
-                  {team.recentForm && team.recentForm.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      {team.recentForm.map((f, i) => renderFormBadge(f, i))}
-                    </div>
-                  )}
+
+                  <span className="text-[#8B949E] group-hover:text-[#DCA842] transition-colors font-semibold text-[11px]">
+                    Ficha →
+                  </span>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="p-10 rounded-2xl bg-[#121519] border border-white/[0.08] text-center space-y-2">
+          <p className="text-sm font-semibold text-[#F1EDE6]">No se encontraron clubes para "{searchQuery}"</p>
+          <p className="text-xs text-[#8B949E]">Verificá la ortografía o cambiá el filtro de zona.</p>
         </div>
       )}
-
-      {/* REGULAR DIRECTORY */}
-      <div className="space-y-3">
-        {isBrowsingAll && (
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[#8B949E] pt-2">
-            Nómina Oficial de Clubes ({filteredTeams.length} Clubes)
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {regularTeams.map((team) => (
-            <div
-              key={team.id}
-              onClick={() => onSelectClub(team.id)}
-              className="p-5 rounded-2xl bg-[#121519] border border-[#22272E] hover:border-[#DCA842]/40 hover:bg-[#15191F] transition-all duration-150 cursor-pointer group flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <TeamBadge
-                      teamId={team.id}
-                      team={team}
-                      logoUrl={team.logo}
-                      size="md"
-                      className="group-hover:scale-105 transition-transform shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <h3 className="font-editorial font-bold text-base text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors leading-tight truncate">
-                        {team.name}
-                      </h3>
-                      <span className="text-xs text-[#8B949E] block truncate">
-                        {team.city}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <span className="text-[10px] uppercase font-bold text-[#8B949E] block font-num">{team.code}</span>
-                    {team.seasonStats && team.seasonStats.position > 0 && (
-                      <span className="font-num font-bold text-base text-[#F1EDE6]">#{team.seasonStats.position}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-xs text-[#8B949E] truncate mb-3">
-                  {team.stadium || 'Estadio Oficial'}
-                </div>
-              </div>
-
-              {/* Bottom Row */}
-              <div className="pt-3 border-t border-[#22272E] flex items-center justify-between">
-                {team.seasonStats && team.seasonStats.played > 0 ? (
-                  <div className="flex items-center gap-3 text-xs">
-                    <div>
-                      <span className="text-[#8B949E] block text-[10px] uppercase">PTS</span>
-                      <span className="font-num font-bold text-base text-[#F1EDE6]">{team.seasonStats.points}</span>
-                    </div>
-                    <div>
-                      <span className="text-[#8B949E] block text-[10px] uppercase">PJ</span>
-                      <span className="font-num font-medium text-xs text-[#8B949E]">{team.seasonStats.played}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-[11px] text-[#8B949E]">Primera División AFA</span>
-                )}
-
-                {team.recentForm && team.recentForm.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {team.recentForm.map((f, i) => renderFormBadge(f, i))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };

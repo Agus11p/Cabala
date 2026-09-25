@@ -322,7 +322,7 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
               <AlertCircle className="w-8 h-8 text-[#DCA842] mx-auto opacity-70" />
               <h4 className="font-bold text-sm text-[#F1EDE6]">Estadísticas detalladas no disponibles</h4>
               <p className="text-xs text-[#8B949E] max-w-sm mx-auto">
-                Las estadísticas avanzadas se sincronizan cuando el proveedor oficial computa los datos de la fecha.
+                Las estadísticas avanzadas se sincronizan cuando el proveedor de datos (ESPN) computa los datos de la fecha.
               </p>
             </div>
           )}

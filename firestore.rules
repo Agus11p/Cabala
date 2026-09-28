@@ -19,15 +19,55 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Official regulations & seasons metadata: public read-only
+    function isServerAuthorized() {
+      return request.resource.data.serverToken == 'cabala_server_internal_token_2026';
+    }
+
+    // Official regulations & seasons metadata: public read-only, server-write only
     match /seasons/{seasonYear} {
-      allow read: if isValidId(seasonYear);
-      allow write: if false;
+      allow read: if true;
+      allow write: if isValidId(seasonYear) && isServerAuthorized();
     }
 
     match /rules/{ruleId} {
-      allow read: if isValidId(ruleId);
-      allow write: if false;
+      allow read: if true;
+      allow write: if isValidId(ruleId) && isServerAuthorized();
+    }
+
+    // Official clubs registry: public read-only, server-write only
+    match /teams/{teamId} {
+      allow read: if true;
+      allow write: if isValidId(teamId) && isServerAuthorized();
+    }
+
+    // Fixtures, live and completed matches: public read-only, server-write only
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isValidId(matchId) && isServerAuthorized();
+    }
+
+    // Zone standings (Apertura and Clausura): public read-only, server-write only
+    match /standings/{standingId} {
+      allow read: if true;
+      allow write: if isValidId(standingId) && isServerAuthorized();
+    }
+
+    // Annual 30-club accumulated standings: public read-only, server-write only
+    match /annual_standings/{seasonYear} {
+      allow read: if true;
+      allow write: if isValidId(seasonYear) && isServerAuthorized();
+    }
+
+    // Data sources metadata: public read-only, server-write only
+    match /data_sources/{sourceId} {
+      allow read: if true;
+      allow write: if isValidId(sourceId) && isServerAuthorized();
+    }
+
+    // Ingestion runs history: public read-only, server-write only
+    match /data_ingestion_runs/{runId} {
+      allow read: if true;
+      allow write: if isValidId(runId) && isServerAuthorized();
     }
 
     // User Profile

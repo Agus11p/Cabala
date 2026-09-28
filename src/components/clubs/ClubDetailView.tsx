@@ -4,6 +4,8 @@ import { TeamBadge } from '../common/TeamBadge';
 import { MatchCard } from '../matches/MatchCard';
 import { TabNav } from '../common/TabNav';
 import { ArrowLeft, MapPin, Calendar, Trophy, Star, Shield, AlertCircle } from 'lucide-react';
+import { formatStatValue, formatTextValue } from '../../utils/formatters';
+import { SinDatoBadge } from '../common/SinDatoBadge';
 
 interface ClubDetailViewProps {
   team: Team;
@@ -68,7 +70,7 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
     );
   };
 
-  const hasStats = team.seasonStats && team.seasonStats.played > 0;
+  const hasStats = Boolean(team.seasonStats && typeof team.seasonStats.played === 'number');
 
   return (
     <div className="space-y-8 animate-fadeIn pb-12">
@@ -119,17 +121,20 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
               <div className="flex flex-wrap items-center gap-y-1.5 gap-x-5 text-xs text-[#8B949E] mt-3">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-[#DCA842]" />
-                  <span>{team.city || 'Argentina'}</span>
+                  <span>{formatTextValue(team.city)}</span>
                 </div>
-                {team.founded > 1800 && (
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#8B949E]" />
-                    <span>Fundación: <strong className="text-[#F1EDE6]">{team.founded}</strong></span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[#8B949E]" />
+                  <span>
+                    Fundación:{' '}
+                    <strong className="text-[#F1EDE6]">
+                      {team.founded && team.founded > 1800 ? team.founded : <SinDatoBadge inline />}
+                    </strong>
+                  </span>
+                </div>
                 <div className="flex items-center gap-1.5">
                   <Shield className="w-3.5 h-3.5 text-[#8B949E]" />
-                  <span>{team.stadium || 'Estadio Oficial'}</span>
+                  <span>{formatTextValue(team.stadium)}</span>
                 </div>
               </div>
             </div>
@@ -140,15 +145,21 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
             <div className="grid grid-cols-3 gap-3 bg-[#181C22] p-4 rounded-2xl border border-[#22272E] text-center shrink-0">
               <div>
                 <span className="text-[10px] text-[#8B949E] uppercase font-bold block mb-1">Posición</span>
-                <span className="font-num font-black text-2xl text-[#F1EDE6]">#{team.seasonStats.position}</span>
+                <span className="font-num font-black text-2xl text-[#F1EDE6]">
+                  #{formatStatValue(team.seasonStats.position)}
+                </span>
               </div>
               <div>
                 <span className="text-[10px] text-[#8B949E] uppercase font-bold block mb-1">Puntos</span>
-                <span className="font-num font-black text-2xl text-[#DCA842]">{team.seasonStats.points}</span>
+                <span className="font-num font-black text-2xl text-[#DCA842]">
+                  {formatStatValue(team.seasonStats.points)}
+                </span>
               </div>
               <div>
                 <span className="text-[10px] text-[#8B949E] uppercase font-bold block mb-1">Partidos</span>
-                <span className="font-num font-black text-2xl text-[#F1EDE6]">{team.seasonStats.played}</span>
+                <span className="font-num font-black text-2xl text-[#F1EDE6]">
+                  {formatStatValue(team.seasonStats.played)}
+                </span>
               </div>
             </div>
           ) : (
@@ -160,16 +171,18 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
         </div>
 
         {/* Recent Form Strip */}
-        {team.recentForm && team.recentForm.length > 0 && (
-          <div className="mt-8 pt-5 border-t border-[#22272E] flex flex-wrap items-center justify-between gap-4 text-xs">
-            <div className="flex items-center gap-3">
-              <span className="text-[#8B949E] font-medium">Forma reciente en el campeonato:</span>
+        <div className="mt-8 pt-5 border-t border-[#22272E] flex flex-wrap items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-[#8B949E] font-medium">Últimos 5 partidos (Forma):</span>
+            {team.recentForm && team.recentForm.length > 0 ? (
               <div className="flex items-center gap-1.5">
                 {team.recentForm.map((f, i) => renderFormBadge(f, i))}
               </div>
-            </div>
+            ) : (
+              <SinDatoBadge inline label="SIN DATO" />
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -184,43 +197,54 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="p-5 rounded-2xl bg-[#121519] border border-[#22272E]">
                 <span className="text-[11px] text-[#8B949E] uppercase font-bold block mb-1">Goles a Favor</span>
-                <span className="font-num font-black text-3xl text-[#F1EDE6]">{team.seasonStats.goalsFor}</span>
+                <span className="font-num font-black text-3xl text-[#F1EDE6]">
+                  {formatStatValue(team.seasonStats.goalsFor)}
+                </span>
                 <span className="text-[11px] text-[#8B949E] block mt-1">
-                  {(team.seasonStats.goalsFor / team.seasonStats.played).toFixed(2)} por partido
+                  {team.seasonStats.played > 0
+                    ? `${(team.seasonStats.goalsFor / team.seasonStats.played).toFixed(2)} por partido`
+                    : '0 por partido'}
                 </span>
               </div>
 
               <div className="p-5 rounded-2xl bg-[#121519] border border-[#22272E]">
                 <span className="text-[11px] text-[#8B949E] uppercase font-bold block mb-1">Goles en Contra</span>
-                <span className="font-num font-black text-3xl text-[#F1EDE6]">{team.seasonStats.goalsAgainst}</span>
+                <span className="font-num font-black text-3xl text-[#F1EDE6]">
+                  {formatStatValue(team.seasonStats.goalsAgainst)}
+                </span>
                 <span className="text-[11px] text-[#8B949E] block mt-1">
-                  {(team.seasonStats.goalsAgainst / team.seasonStats.played).toFixed(2)} por partido
+                  {team.seasonStats.played > 0
+                    ? `${(team.seasonStats.goalsAgainst / team.seasonStats.played).toFixed(2)} por partido`
+                    : '0 por partido'}
                 </span>
               </div>
 
               <div className="p-5 rounded-2xl bg-[#121519] border border-[#22272E]">
                 <span className="text-[11px] text-[#8B949E] uppercase font-bold block mb-1">Victorias</span>
-                <span className="font-num font-black text-3xl text-[#30A46C]">{team.seasonStats.won}</span>
+                <span className="font-num font-black text-3xl text-[#10B981]">
+                  {formatStatValue(team.seasonStats.won)}
+                </span>
                 <span className="text-[11px] text-[#8B949E] block mt-1">
-                  {((team.seasonStats.won / team.seasonStats.played) * 100).toFixed(0)}% efectividad
+                  {team.seasonStats.played > 0
+                    ? `${((team.seasonStats.won / team.seasonStats.played) * 100).toFixed(0)}% efectividad`
+                    : '0% efectividad'}
                 </span>
               </div>
 
               <div className="p-5 rounded-2xl bg-[#121519] border border-[#22272E]">
                 <span className="text-[11px] text-[#8B949E] uppercase font-bold block mb-1">Diferencia de Gol</span>
                 <span className="font-num font-black text-3xl text-[#DCA842]">
-                  {team.seasonStats.goalsFor - team.seasonStats.goalsAgainst > 0
-                    ? `+${team.seasonStats.goalsFor - team.seasonStats.goalsAgainst}`
-                    : team.seasonStats.goalsFor - team.seasonStats.goalsAgainst}
+                  {formatStatValue(team.seasonStats.goalsFor - team.seasonStats.goalsAgainst, { sign: true })}
                 </span>
                 <span className="text-[11px] text-[#8B949E] block mt-1">Balance total</span>
               </div>
             </div>
           ) : (
             <div className="p-6 rounded-2xl bg-[#121519] border border-[#22272E] text-center space-y-2">
-              <span className="text-xs text-[#8B949E]">
-                Las métricas individuales de temporada se actualizan según la tabla de posiciones oficial.
-              </span>
+              <SinDatoBadge inline label="SIN DATO" />
+              <p className="text-xs text-[#8B949E]">
+                Las métricas individuales de temporada se actualizan según la tabla de posiciones oficial de ESPN.
+              </p>
             </div>
           )}
 
@@ -236,11 +260,11 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
               </div>
               <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
                 <span className="block mb-1">Localidad</span>
-                <span className="font-bold text-[#F1EDE6] text-sm">{team.city || 'Argentina'}</span>
+                <span className="font-bold text-[#F1EDE6] text-sm">{formatTextValue(team.city)}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
                 <span className="block mb-1">Estadio</span>
-                <span className="font-bold text-[#F1EDE6] text-sm">{team.stadium || 'Estadio Oficial'}</span>
+                <span className="font-bold text-[#F1EDE6] text-sm">{formatTextValue(team.stadium)}</span>
               </div>
             </div>
           </div>
@@ -278,6 +302,7 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
 
           {teamMatches.length === 0 && (
             <div className="p-8 rounded-2xl bg-[#121519] border border-[#22272E] text-center space-y-2">
+              <SinDatoBadge inline label="SIN DATO" />
               <p className="font-semibold text-sm text-[#F1EDE6]">Sin partidos registrados en el fixture actual</p>
               <p className="text-xs text-[#8B949E]">
                 Los partidos se cargan en tiempo real según el cronograma oficial de AFA.
@@ -294,32 +319,44 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-left">
               <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
                 <span className="text-xs text-[#8B949E] block">Partidos Jugados</span>
-                <span className="font-num text-2xl font-bold text-[#F1EDE6]">{team.seasonStats.played}</span>
+                <span className="font-num text-2xl font-bold text-[#F1EDE6]">
+                  {formatStatValue(team.seasonStats.played)}
+                </span>
               </div>
               <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
                 <span className="text-xs text-[#8B949E] block">Victorias</span>
-                <span className="font-num text-2xl font-bold text-[#30A46C]">{team.seasonStats.won}</span>
+                <span className="font-num text-2xl font-bold text-[#10B981]">
+                  {formatStatValue(team.seasonStats.won)}
+                </span>
               </div>
               <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
                 <span className="text-xs text-[#8B949E] block">Empates</span>
-                <span className="font-num text-2xl font-bold text-[#F1EDE6]">{team.seasonStats.drawn}</span>
+                <span className="font-num text-2xl font-bold text-[#F1EDE6]">
+                  {formatStatValue(team.seasonStats.drawn)}
+                </span>
               </div>
               <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
                 <span className="text-xs text-[#8B949E] block">Derrotas</span>
-                <span className="font-num text-2xl font-bold text-[#E5484D]">{team.seasonStats.lost}</span>
+                <span className="font-num text-2xl font-bold text-[#E63946]">
+                  {formatStatValue(team.seasonStats.lost)}
+                </span>
               </div>
               <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
                 <span className="text-xs text-[#8B949E] block">Goles a Favor</span>
-                <span className="font-num text-2xl font-bold text-[#F1EDE6]">{team.seasonStats.goalsFor}</span>
+                <span className="font-num text-2xl font-bold text-[#F1EDE6]">
+                  {formatStatValue(team.seasonStats.goalsFor)}
+                </span>
               </div>
               <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
                 <span className="text-xs text-[#8B949E] block">Goles en Contra</span>
-                <span className="font-num text-2xl font-bold text-[#F1EDE6]">{team.seasonStats.goalsAgainst}</span>
+                <span className="font-num text-2xl font-bold text-[#F1EDE6]">
+                  {formatStatValue(team.seasonStats.goalsAgainst)}
+                </span>
               </div>
             </div>
           ) : (
-            <div className="py-6 space-y-2">
-              <AlertCircle className="w-8 h-8 text-[#DCA842] mx-auto opacity-70" />
+            <div className="py-6 space-y-3">
+              <SinDatoBadge inline label="SIN DATO" />
               <h4 className="font-bold text-sm text-[#F1EDE6]">Estadísticas detalladas no disponibles</h4>
               <p className="text-xs text-[#8B949E] max-w-sm mx-auto">
                 Las estadísticas avanzadas se sincronizan cuando el proveedor de datos (ESPN) computa los datos de la fecha.
@@ -351,11 +388,11 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="py-6 space-y-2">
-              <Trophy className="w-8 h-8 text-[#8B949E] mx-auto opacity-50" />
-              <h4 className="font-bold text-sm text-[#F1EDE6]">Palmarés oficial no disponible</h4>
+            <div className="py-6 space-y-3">
+              <SinDatoBadge inline label="SIN DATO" />
+              <h4 className="font-bold text-sm text-[#F1EDE6]">Palmarés histórico oficial no disponible</h4>
               <p className="text-xs text-[#8B949E] max-w-sm mx-auto">
-                El histórico oficial de títulos de AFA no está integrado en la fuente de datos actual. En cumplimiento de las reglas de CÁBALA, no se inventan copas.
+                El histórico oficial de títulos de AFA no está integrado en la fuente de datos actual (ESPN). En cumplimiento estricto con las reglas de CÁBALA, no se inventan títulos.
               </p>
             </div>
           )}

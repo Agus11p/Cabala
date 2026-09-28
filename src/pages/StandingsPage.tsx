@@ -143,7 +143,7 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
       case 'playoffs':
         return 'Cuadro oficial de Octavos de Final: 1A vs 8B, 1B vs 8A, 2A vs 7B, 2B vs 7A, 3A vs 6B, 3B vs 6A, 4A vs 5B, 4B vs 5A. Localía para los 4 mejores clasificados.';
       case 'promedios':
-        return 'Tabla de Promedios: Cociente de puntos sobre partidos disputados en las últimas 3 temporadas (2024, 2025 y 2026). Si el proveedor de datos (ESPN) no suministra coeficientes oficiales, se indica datos no disponibles.';
+        return 'Tabla de Promedios: Cociente de puntos sobre partidos disputados en las últimas 3 temporadas (2024, 2025 y 2026). Si el proveedor de datos (ESPN) no suministra coeficientes oficiales, el estado reglamentario es SIN DATO.';
       default:
         return '';
     }
@@ -185,7 +185,7 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
             {uiState === 'EMPTY' && (
               <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#181C22] border border-[#22272E] text-[11px] font-semibold text-[#8B949E]">
                 <span className="w-2 h-2 rounded-full bg-[#8B949E]" />
-                <span>Sin datos disponibles en ESPN</span>
+                <span>SIN DATO</span>
               </span>
             )}
             {uiState === 'ERROR' && (

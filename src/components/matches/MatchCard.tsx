@@ -2,6 +2,7 @@ import React from 'react';
 import { Match } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
 import { StatusIndicator } from '../common/StatusIndicator';
+import { formatMatchTime, formatTextValue } from '../../utils/formatters';
 
 interface MatchCardProps {
   match: Match;
@@ -26,6 +27,20 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const handleClick = () => {
     if (onClick) onClick(match.id);
   };
+
+  const homeScoreDisplay =
+    match.homeScore !== null && match.homeScore !== undefined
+      ? match.homeScore
+      : isLive || isFinished
+      ? 'SIN DATO'
+      : null;
+
+  const awayScoreDisplay =
+    match.awayScore !== null && match.awayScore !== undefined
+      ? match.awayScore
+      : isLive || isFinished
+      ? 'SIN DATO'
+      : null;
 
   // FEATURED MATCH HERO CARD
   if (featured) {
@@ -79,18 +94,36 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <div className="sm:col-span-1 flex flex-col items-center justify-center py-1">
             {isLive || isFinished ? (
               <div className="flex items-baseline justify-center gap-2.5 font-num font-black text-4xl sm:text-5xl text-[#F1EDE6] tabular-nums tracking-tight">
-                <span className={isLive && (match.homeScore ?? 0) > (match.awayScore ?? 0) ? 'text-[#10B981]' : ''}>
-                  {match.homeScore ?? 0}
+                <span
+                  className={
+                    isLive &&
+                    match.homeScore !== null &&
+                    match.awayScore !== null &&
+                    match.homeScore > match.awayScore
+                      ? 'text-[#10B981]'
+                      : ''
+                  }
+                >
+                  {homeScoreDisplay}
                 </span>
                 <span className="text-white/20 text-2xl font-light select-none">—</span>
-                <span className={isLive && (match.awayScore ?? 0) > (match.homeScore ?? 0) ? 'text-[#10B981]' : ''}>
-                  {match.awayScore ?? 0}
+                <span
+                  className={
+                    isLive &&
+                    match.homeScore !== null &&
+                    match.awayScore !== null &&
+                    match.awayScore > match.homeScore
+                      ? 'text-[#10B981]'
+                      : ''
+                  }
+                >
+                  {awayScoreDisplay}
                 </span>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center">
                 <span className="font-num text-2xl sm:text-3xl font-bold text-[#F1EDE6] px-3 py-1 rounded-lg bg-[#181C22] border border-white/[0.08]">
-                  {match.time || '--:--'}
+                  {formatMatchTime(match.time)}
                 </span>
                 <span className="text-[10px] text-[#8B949E] mt-1 font-medium tracking-wide">
                   {match.date}
@@ -121,7 +154,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
         {/* Bottom meta */}
         <div className="mt-5 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-[#8B949E]">
-          <span className="truncate max-w-[240px]">{match.stadium || 'Estadio Oficial'}</span>
+          <span className="truncate max-w-[240px]">{formatTextValue(match.stadium)}</span>
           <span className="font-semibold text-[#8B949E] group-hover:text-[#DCA842] transition-colors flex items-center gap-1">
             <span>Ficha del encuentro</span>
             <span>→</span>
@@ -155,12 +188,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               {homeName}
             </span>
           </div>
-          {(isLive || isFinished) ? (
-            <span className={`font-num text-lg font-bold tabular-nums ${isLive && (match.homeScore ?? 0) > (match.awayScore ?? 0) ? 'text-[#10B981]' : 'text-[#F1EDE6]'}`}>
-              {match.homeScore ?? 0}
+          {isLive || isFinished ? (
+            <span
+              className={`font-num text-lg font-bold tabular-nums ${
+                isLive &&
+                match.homeScore !== null &&
+                match.awayScore !== null &&
+                match.homeScore > match.awayScore
+                  ? 'text-[#10B981]'
+                  : 'text-[#F1EDE6]'
+              }`}
+            >
+              {homeScoreDisplay}
             </span>
           ) : (
-            <span className="text-xs text-[#8B949E] font-num">{match.time || '--:--'}</span>
+            <span className="text-xs text-[#8B949E] font-num">{formatMatchTime(match.time)}</span>
           )}
         </div>
 
@@ -173,15 +215,24 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             </span>
           </div>
           {(isLive || isFinished) && (
-            <span className={`font-num text-lg font-bold tabular-nums ${isLive && (match.awayScore ?? 0) > (match.homeScore ?? 0) ? 'text-[#10B981]' : 'text-[#F1EDE6]'}`}>
-              {match.awayScore ?? 0}
+            <span
+              className={`font-num text-lg font-bold tabular-nums ${
+                isLive &&
+                match.homeScore !== null &&
+                match.awayScore !== null &&
+                match.awayScore > match.homeScore
+                  ? 'text-[#10B981]'
+                  : 'text-[#F1EDE6]'
+              }`}
+            >
+              {awayScoreDisplay}
             </span>
           )}
         </div>
       </div>
 
       <div className="mt-2.5 pt-2 border-t border-white/[0.04] flex items-center justify-between text-[10px] text-[#8B949E]">
-        <span className="truncate">{match.stadium || 'Estadio Oficial'}</span>
+        <span className="truncate">{formatTextValue(match.stadium)}</span>
         <span className="text-[#8B949E] group-hover:text-[#DCA842] transition-colors font-medium">
           Ver ficha →
         </span>

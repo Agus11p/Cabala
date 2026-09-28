@@ -5,9 +5,11 @@
  * - NemotronProvider (NVIDIA Nemotron 3.5 Lightning 30B): Respuestas de alta velocidad, fixtures, resultados y fichas.
  * - DeepSeekProvider (DeepSeek V4.1 Flash): Análisis táctico, proyecciones matemáticas y probabilidades.
  *
- * REGLA DE ORO DE CÁBALA:
- * La IA NUNCA inventa datos deportivos; todas las respuestas se fundamentan exclusivamente
- * en las herramientas deterministas, en los datos del proveedor deportivo (ESPN) y en el reglamento AFA.
+ * REGLA DE ORO DE CÁBALA (REGLA 9 - IA):
+ * 1. La IA NO es una fuente de verdad deportiva.
+ * 2. Si la IA no encuentra el dato o no está verificado en el contexto: responder estrictamente "SIN DATO".
+ * 3. NUNCA permitir respuestas del tipo "Creo que...", "Probablemente...", "Según estimaciones...".
+ * 4. Todas las respuestas se fundamentan exclusivamente en las herramientas deterministas, en los datos del proveedor deportivo (ESPN) y en el reglamento AFA.
  */
 
 export interface AIMessage {
@@ -40,7 +42,7 @@ export class NemotronProvider implements AIProvider {
     if (contextData?.toolName === 'getCurrentStandings') {
       const res = contextData.toolResult;
       if (!res.disponible) {
-        content = `${res.mensaje} En cumplimiento del principio de CÁBALA, no se exhiben estadísticas ficticias.`;
+        content = `${res.mensaje} Estado reglamentario: SIN DATO. En cumplimiento del principio de CÁBALA, no se exhiben estadísticas ficticias.`;
       } else {
         const rows = res.primerosPuestos
           .map((p: any) => `${p.posicion}° ${p.club} — ${p.puntos} pts (${p.partidosJugados} PJ | DG ${p.diferenciaGol > 0 ? '+' : ''}${p.diferenciaGol})`)
@@ -54,17 +56,17 @@ export class NemotronProvider implements AIProvider {
         : '';
       const sched = res.proximosPartidos.length > 0
         ? `Próximos partidos programados (Fuente: ESPN):\n${res.proximosPartidos.map((p: any) => `• ${p.local} vs ${p.visitante} (${p.fecha} · ${p.hora} hs)`).join('\n')}`
-        : 'No hay más cotejos programados en esta ventana.';
+        : 'No hay cotejos programados en esta ventana.';
       content = `${live}${sched}`;
     } else if (contextData?.toolName === 'getClubInfo') {
       const res = contextData.toolResult;
       if (!res.encontrado) {
-        content = res.mensaje;
+        content = `SIN DATO: ${res.mensaje}`;
       } else {
-        content = `Ficha de Club: ${res.nombre} (${res.codigo})\n• Estadio: ${res.estadio}\n• Sede: ${res.ciudad}\n• Zona AFA: ${res.zonaAsignada}`;
+        content = `Ficha de Club: ${res.nombre} (${res.codigo})\n• Estadio: ${res.estadio || 'SIN DATO'}\n• Sede: ${res.ciudad || 'SIN DATO'}\n• Zona AFA: ${res.zonaAsignada || 'SIN DATO'}`;
       }
     } else {
-      content = 'Consulta procesada por el motor de CÁBALA con datos verificados de Primera División.';
+      content = 'Consulta procesada por el motor determinista de CÁBALA con datos verificados de Primera División.';
     }
 
     return {
@@ -88,7 +90,7 @@ export class KimiProvider implements AIProvider {
     if (contextData?.toolName === 'getPlayoffQualifiers') {
       const res = contextData.toolResult;
       if (!res.disponible) {
-        content = `${res.mensaje} En CÁBALA no se generan cuadros ficticios.`;
+        content = `SIN DATO: ${res.mensaje} En CÁBALA no se generan cuadros ficticios.`;
       } else {
         const topA = res.zonaAClasificados.map((c: any) => `${c.posicion}° ${c.club} (${c.puntos} pts | DG ${c.diferenciaGol >= 0 ? '+' : ''}${c.diferenciaGol})${c.ventajaLocalia ? ' [Local]' : ''}`).join('\n');
         const topB = res.zonaBClasificados.map((c: any) => `${c.posicion}° ${c.club} (${c.puntos} pts | DG ${c.diferenciaGol >= 0 ? '+' : ''}${c.diferenciaGol})${c.ventajaLocalia ? ' [Local]' : ''}`).join('\n');
@@ -98,7 +100,7 @@ export class KimiProvider implements AIProvider {
     } else if (contextData?.toolName === 'getRelegationStatus') {
       const res = contextData.toolResult;
       if (!res.disponible) {
-        content = `${res.mensaje} No se computan descensos sin datos del proveedor de datos (ESPN).`;
+        content = `SIN DATO: ${res.mensaje} No se computan descensos sin datos del proveedor de datos (ESPN).`;
       } else {
         const list = res.equiposEnZonaComprometida.length > 0
           ? res.equiposEnZonaComprometida.map((e: any) => `• ${e.club} — Estado: ${e.estado} (Puesto Anual ${e.posicionAnual}°)\n  Detalle: ${e.motivo}\n  Certificación: ${e.verificacionReglamentaria}`).join('\n\n')
@@ -115,7 +117,7 @@ export class KimiProvider implements AIProvider {
       const res = contextData.toolResult;
       content = `Análisis Matemático y Reglamentario para ${res.teamName}:\n\n${res.summaryExplanation}\n\n• Posición Actual: ${res.currentPosition}° (${res.currentPoints} pts en ${res.played} PJ)\n• Puntos del 8° (corte a Octavos): ${res.eighthPlaceCurrentPoints} pts\n• Techo matemático del 9°: ${res.ninthPlaceMaxPoints} pts\n• Estado: ${res.status === 'CLINCHED' ? 'CLASIFICADO' : res.status === 'ELIMINATED' ? 'ELIMINADO' : 'EN DISPUTA'}`;
     } else {
-      content = 'Análisis de razonamiento y arbitraje reglamentario emitido bajo las bases de AFA 2026.';
+      content = 'Análisis de arbitraje reglamentario fundamentado exclusivamente en el reglamento AFA 2026. Ante datos no verificados: SIN DATO.';
     }
 
     return {
@@ -143,7 +145,7 @@ export class DeepSeekProvider implements AIProvider {
       const res = contextData.toolResult;
       content = `Cálculo de Tabla Oficial (${res.tipo?.toUpperCase()}):\nTotal de clubes en nómina: ${res.totalEquipos}.\nPuntero: ${res.primerosPuestos?.[0]?.club} con ${res.primerosPuestos?.[0]?.puntos} puntos.`;
     } else {
-      content = 'Evaluación táctica y estadística basada en la métrica oficial de la Liga Profesional de Fútbol.';
+      content = 'Evaluación determinista basada en la métrica verificada de la Liga Profesional de Fútbol. Ante ausencia de datos: SIN DATO.';
     }
 
     return {

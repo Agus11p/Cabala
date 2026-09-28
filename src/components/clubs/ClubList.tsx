@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Team } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
 import { Search, MapPin } from 'lucide-react';
+import { formatStatValue, formatTextValue } from '../../utils/formatters';
 
 interface ClubListProps {
   teams: Team[];
@@ -136,7 +137,7 @@ export const ClubList: React.FC<ClubListProps> = ({ teams, onSelectClub }) => {
                     {hasStats && stats && (
                       <div className="text-right shrink-0">
                         <span className="font-num font-black text-xl text-[#F1EDE6] group-hover:text-[#DCA842] tabular-nums block">
-                          {stats.points}
+                          {formatStatValue(stats.points)}
                         </span>
                         <span className="text-[9px] uppercase font-bold text-[#8B949E] block -mt-1">
                           pts
@@ -150,13 +151,13 @@ export const ClubList: React.FC<ClubListProps> = ({ teams, onSelectClub }) => {
                 <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-[#8B949E]">
                   {hasStats && stats ? (
                     <div className="flex items-center gap-3 font-num">
-                      <span><strong className="text-[#F1EDE6]">{stats.played}</strong> PJ</span>
-                      <span><strong className="text-[#10B981]">{stats.won}</strong> PG</span>
-                      <span><strong className="text-[#F1EDE6]">{stats.drawn}</strong> PE</span>
-                      <span><strong className="text-[#E63946]">{stats.lost}</strong> PP</span>
+                      <span><strong className="text-[#F1EDE6]">{formatStatValue(stats.played)}</strong> PJ</span>
+                      <span><strong className="text-[#10B981]">{formatStatValue(stats.won)}</strong> PG</span>
+                      <span><strong className="text-[#F1EDE6]">{formatStatValue(stats.drawn)}</strong> PE</span>
+                      <span><strong className="text-[#E63946]">{formatStatValue(stats.lost)}</strong> PP</span>
                     </div>
                   ) : (
-                    <span className="truncate max-w-[180px]">{team.stadium || 'Estadio Oficial'}</span>
+                    <span className="truncate max-w-[180px]">{formatTextValue(team.stadium)}</span>
                   )}
 
                   <span className="text-[#8B949E] group-hover:text-[#DCA842] transition-colors font-semibold text-[11px]">

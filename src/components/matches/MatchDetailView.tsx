@@ -5,6 +5,8 @@ import { StatusIndicator } from '../common/StatusIndicator';
 import { StatBar } from '../common/StatBar';
 import { TabNav } from '../common/TabNav';
 import { ArrowLeft, MapPin, User, Calendar, ShieldAlert } from 'lucide-react';
+import { formatMatchTime, formatTextValue } from '../../utils/formatters';
+import { SinDatoBadge } from '../common/SinDatoBadge';
 
 interface MatchDetailViewProps {
   match: Match;
@@ -30,40 +32,26 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
   const isLive = match.status === 'live';
   const isFinished = match.status === 'finished';
 
+  const homeScoreDisplay =
+    match.homeScore !== null && match.homeScore !== undefined
+      ? match.homeScore
+      : isLive || isFinished
+      ? 'SIN DATO'
+      : null;
+
+  const awayScoreDisplay =
+    match.awayScore !== null && match.awayScore !== undefined
+      ? match.awayScore
+      : isLive || isFinished
+      ? 'SIN DATO'
+      : null;
+
   const tabs = [
     { id: 'eventos' as const, label: 'Cronología' },
     { id: 'estadisticas' as const, label: 'Estadísticas' },
     { id: 'alineaciones' as const, label: 'Alineaciones' },
     { id: 'info' as const, label: 'Ficha Técnica' },
   ];
-
-  const renderEventIcon = (event: MatchEvent) => {
-    switch (event.type) {
-      case 'goal':
-      case 'penalty_goal':
-        return (
-          <span className="w-5 h-5 rounded-full bg-[#181C22] border border-[#22272E] flex items-center justify-center text-xs shrink-0" title="Gol">
-            ⚽
-          </span>
-        );
-      case 'yellow_card':
-        return (
-          <span className="inline-block w-2.5 h-3.5 bg-amber-400 rounded-xs shadow-xs shrink-0" title="Tarjeta Amarilla" />
-        );
-      case 'red_card':
-        return (
-          <span className="inline-block w-2.5 h-3.5 bg-[#E5484D] rounded-xs shadow-xs shrink-0" title="Tarjeta Roja" />
-        );
-      case 'sub':
-        return (
-          <span className="w-5 h-5 rounded-full bg-[#181C22] border border-[#22272E] flex items-center justify-center text-[10px] text-[#8B949E] font-bold shrink-0">
-            ⇄
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="space-y-8 animate-fadeIn pb-12">
@@ -78,14 +66,14 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
         </button>
 
         <span className="text-xs text-[#8B949E] font-num">
-          ID Oficial: {match.id}
+          ID: {match.id}
         </span>
       </div>
 
       {/* Hero Match Board */}
       <div className="rounded-3xl bg-[#121519] border border-[#22272E] p-6 md:p-10 shadow-xl relative overflow-hidden">
         {isLive && (
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#30A46C]" />
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#10B981]" />
         )}
 
         {/* Tournament & Status */}
@@ -129,18 +117,36 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
           <div className="md:col-span-1 flex flex-col items-center justify-center my-2">
             {isLive || isFinished ? (
               <div className="flex items-baseline justify-center gap-3 font-num font-black text-5xl md:text-7xl text-[#F1EDE6] tabular-nums tracking-tighter">
-                <span className={isLive && match.homeScore !== null && match.homeScore > (match.awayScore ?? 0) ? 'text-[#30A46C]' : ''}>
-                  {match.homeScore ?? 0}
+                <span
+                  className={
+                    isLive &&
+                    match.homeScore !== null &&
+                    match.awayScore !== null &&
+                    match.homeScore > match.awayScore
+                      ? 'text-[#10B981]'
+                      : ''
+                  }
+                >
+                  {homeScoreDisplay}
                 </span>
                 <span className="text-[#3A424D] text-3xl font-light select-none">—</span>
-                <span className={isLive && match.awayScore !== null && match.awayScore > (match.homeScore ?? 0) ? 'text-[#30A46C]' : ''}>
-                  {match.awayScore ?? 0}
+                <span
+                  className={
+                    isLive &&
+                    match.homeScore !== null &&
+                    match.awayScore !== null &&
+                    match.awayScore > match.homeScore
+                      ? 'text-[#10B981]'
+                      : ''
+                  }
+                >
+                  {awayScoreDisplay}
                 </span>
               </div>
             ) : (
               <div className="flex flex-col items-center">
                 <span className="font-num text-3xl md:text-4xl font-bold text-[#F1EDE6] px-4 py-2 rounded-xl bg-[#181C22] border border-[#22272E]">
-                  {match.time || '--:--'}
+                  {formatMatchTime(match.time)}
                 </span>
                 <span className="text-xs text-[#8B949E] mt-2 font-medium">
                   {match.date}
@@ -174,81 +180,53 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
           </div>
         </div>
 
-        {/* Stadium & Meta Footer */}
-        <div className="mt-8 pt-5 border-t border-[#22272E] flex flex-wrap items-center justify-between gap-4 text-xs text-[#8B949E]">
+        {/* Stadium & Referee Bar */}
+        <div className="mt-8 pt-4 border-t border-[#22272E] flex flex-wrap items-center justify-between gap-4 text-xs text-[#8B949E]">
           <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-[#DCA842]" />
-            <span className="font-medium text-[#F1EDE6]">{match.stadium || 'Estadio Oficial de la Asociación del Fútbol Argentino'}</span>
+            <MapPin className="w-3.5 h-3.5 text-[#DCA842]" />
+            <span>Estadio: <strong className="text-[#F1EDE6]">{formatTextValue(match.stadium)}</strong></span>
           </div>
-
-          {match.referee && (
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-[#DCA842]" />
-              <span>Árbitro: <strong className="text-[#F1EDE6]">{match.referee}</strong></span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <User className="w-3.5 h-3.5 text-[#DCA842]" />
+            <span>Árbitro: <strong className="text-[#F1EDE6]">{formatTextValue(match.referee)}</strong></span>
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex overflow-x-auto pb-1 scrollbar-none">
-        <TabNav
-          tabs={tabs}
-          activeTab={activeTab}
-          onChange={(t) => setActiveTab(t as MatchTab)}
-        />
+      {/* Navigation tabs */}
+      <div className="flex justify-start">
+        <TabNav tabs={tabs} activeTab={activeTab} onChange={(t) => setActiveTab(t as MatchTab)} />
       </div>
 
-      {/* Tab: Eventos / Cronología */}
+      {/* Tab: Cronología */}
       {activeTab === 'eventos' && (
-        <div className="bg-[#121519] border border-[#22272E] rounded-3xl p-6 md:p-8">
-          <h3 className="font-editorial font-bold text-lg text-[#F1EDE6] mb-6">
-            Línea de Tiempo del Encuentro
+        <div className="bg-[#121519] border border-[#22272E] rounded-3xl p-6 md:p-8 space-y-6">
+          <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
+            Incidencias y Cronología
           </h3>
 
           {match.events && match.events.length > 0 ? (
-            <div className="relative border-l border-[#22272E] ml-4 md:ml-6 space-y-6 my-2 pl-6">
-              {match.events.map((evt) => {
-                const isHome = evt.teamId === match.homeTeamId;
-                const team = isHome ? homeTeam : awayTeam;
-
+            <div className="relative border-l-2 border-[#22272E] ml-4 md:ml-32 space-y-6 pl-6 py-2">
+              {match.events.map((event) => {
+                const isHome = event.teamId === match.homeTeamId;
                 return (
-                  <div key={evt.id} className="relative flex items-start justify-between group">
-                    {/* Minute marker */}
-                    <div className="absolute -left-[35px] md:-left-[43px] top-0 flex items-center justify-center w-7 h-7 rounded-full bg-[#181C22] border border-[#2E353F] text-xs font-num font-bold text-[#F1EDE6]">
-                      {evt.minute}'
-                    </div>
-
-                    <div className="min-w-0 pl-2">
-                      <div className="flex items-center gap-2.5">
-                        {renderEventIcon(evt)}
-                        <span className="text-sm font-bold text-[#F1EDE6] tracking-tight">
-                          {evt.player}
-                        </span>
-                      </div>
-                      <div className="text-xs text-[#8B949E] mt-1 pl-7">
-                        {evt.type === 'goal' && evt.assistOrSubOut && (
-                          <span>Pase gol: <strong className="text-[#F1EDE6]">{evt.assistOrSubOut}</strong></span>
-                        )}
-                        {evt.type === 'sub' && evt.assistOrSubOut && (
-                          <span>Reemplaza a: <strong className="text-[#F1EDE6]">{evt.assistOrSubOut}</strong></span>
-                        )}
-                        {evt.type === 'yellow_card' && <span>Amonestación</span>}
-                        {evt.type === 'red_card' && <span className="text-[#E5484D] font-semibold">Expulsión directa</span>}
-                      </div>
-                    </div>
-
-                    <div className="text-xs font-medium text-[#8B949E] shrink-0 uppercase tracking-wider">
-                      {team?.shortName || evt.teamId}
+                  <div key={event.id} className="relative flex items-center justify-between text-xs">
+                    <span className="absolute -left-[35px] font-num font-bold text-[#DCA842] text-xs bg-[#121519] py-0.5 px-1 rounded-sm border border-[#22272E]">
+                      {event.minute}'
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-semibold text-[#F1EDE6]">{event.player}</span>
+                      <span className="text-[#8B949E]">({isHome ? homeName : awayName})</span>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="text-xs text-[#8B949E] py-8 text-center space-y-1">
-              <p className="font-semibold text-[#F1EDE6]">Sin incidencias registradas</p>
-              <p>Las incidencias oficiales se reportan durante y al finalizar el encuentro.</p>
+            <div className="text-xs text-[#8B949E] py-8 text-center space-y-3">
+              <SinDatoBadge inline label="SIN DATO" />
+              <p className="font-semibold text-[#F1EDE6]">Sin incidencias registradas en la transmisión oficial</p>
+              <p>Las acciones de gol, sustituciones y tarjetas se registran automáticamente durante el juego.</p>
             </div>
           )}
         </div>
@@ -256,15 +234,13 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
 
       {/* Tab: Estadísticas */}
       {activeTab === 'estadisticas' && (
-        <div className="bg-[#121519] border border-[#22272E] rounded-3xl p-6 md:p-8">
-          <div className="flex items-center justify-between pb-4 border-b border-[#22272E] mb-4 text-xs font-bold text-[#8B949E]">
-            <span className="text-[#F1EDE6] text-sm uppercase">{homeName}</span>
-            <span className="uppercase tracking-widest text-[#DCA842]">Métricas Oficiales</span>
-            <span className="text-[#F1EDE6] text-sm uppercase">{awayName}</span>
-          </div>
+        <div className="bg-[#121519] border border-[#22272E] rounded-3xl p-6 md:p-8 space-y-6">
+          <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
+            Estadísticas Comparativas
+          </h3>
 
           {match.stats ? (
-            <div className="divide-y divide-[#22272E]">
+            <div className="space-y-5 max-w-xl mx-auto">
               <StatBar
                 label="Posesión de Balón"
                 homeValue={match.stats.possession[0]}
@@ -272,7 +248,7 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
                 isPercentage
               />
               <StatBar
-                label="Remates Totales"
+                label="Tiros Totales"
                 homeValue={match.stats.shots[0]}
                 awayValue={match.stats.shots[1]}
               />
@@ -308,9 +284,10 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
               />
             </div>
           ) : (
-            <div className="text-xs text-[#8B949E] py-8 text-center space-y-1">
-              <p className="font-semibold text-[#F1EDE6]">Estadísticas detalladas no disponibles</p>
-              <p>Las métricas en tiempo real se habilitan para partidos con cobertura técnica oficial.</p>
+            <div className="text-xs text-[#8B949E] py-8 text-center space-y-3">
+              <SinDatoBadge inline label="SIN DATO" />
+              <p className="font-semibold text-[#F1EDE6]">Estadísticas detalladas no disponibles en el feed de datos</p>
+              <p>Las métricas avanzadas (posesión, tiros, faltas) se habilitan cuando el proveedor computa la planilla oficial.</p>
             </div>
           )}
         </div>
@@ -380,8 +357,9 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="text-xs text-[#8B949E] py-8 text-center space-y-1">
-              <p className="font-semibold text-[#F1EDE6]">Alineaciones no disponibles</p>
+            <div className="text-xs text-[#8B949E] py-8 text-center space-y-3">
+              <SinDatoBadge inline label="SIN DATO" />
+              <p className="font-semibold text-[#F1EDE6]">Alineaciones no informadas en el proveedor</p>
               <p>Las formaciones oficiales se confirman habitualmente 60 minutos antes del inicio del partido.</p>
             </div>
           )}
@@ -406,18 +384,22 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
             </div>
             <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
               <span className="text-[#8B949E] block mb-1">Fecha y Horario</span>
-              <span className="text-sm font-bold text-[#F1EDE6]">{match.date} · {match.time} hs</span>
+              <span className="text-sm font-bold text-[#F1EDE6]">
+                {match.date} · {formatMatchTime(match.time)} hs
+              </span>
             </div>
             <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
               <span className="text-[#8B949E] block mb-1">Estadio</span>
-              <span className="text-sm font-bold text-[#F1EDE6]">{match.stadium || 'Estadio Oficial AFA'}</span>
+              <span className="text-sm font-bold text-[#F1EDE6]">
+                {formatTextValue(match.stadium)}
+              </span>
             </div>
-            {match.referee && (
-              <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E] md:col-span-2">
-                <span className="text-[#8B949E] block mb-1">Cuerpo Arbitral</span>
-                <span className="text-sm font-bold text-[#F1EDE6]">{match.referee}</span>
-              </div>
-            )}
+            <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E] md:col-span-2">
+              <span className="text-[#8B949E] block mb-1">Cuerpo Arbitral</span>
+              <span className="text-sm font-bold text-[#F1EDE6]">
+                {formatTextValue(match.referee)}
+              </span>
+            </div>
           </div>
         </div>
       )}

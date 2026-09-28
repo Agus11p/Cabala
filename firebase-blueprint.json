@@ -29,6 +29,105 @@
       },
       "required": ["competitionId", "seasonYear", "format"]
     },
+    "TeamRecord": {
+      "title": "Club Entity",
+      "description": "Normalized Primera División team entity with provenance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "shortName": { "type": "string" },
+        "code": { "type": "string" },
+        "city": { "type": "string" },
+        "stadium": { "type": "string" },
+        "logo": { "type": "string" },
+        "primaryColor": { "type": "string" },
+        "secondaryColor": { "type": "string" },
+        "zone": { "type": "string" },
+        "provenance": { "type": "object" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "code"]
+    },
+    "MatchRecord": {
+      "title": "Match Entity",
+      "description": "Normalized Primera División fixture match record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tournament": { "type": "string" },
+        "round": { "type": "string" },
+        "homeTeamId": { "type": "string" },
+        "awayTeamId": { "type": "string" },
+        "homeScore": { "type": "number" },
+        "awayScore": { "type": "number" },
+        "status": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "stadium": { "type": "string" },
+        "referee": { "type": "string" },
+        "provenance": { "type": "object" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "homeTeamId", "awayTeamId", "status", "date"]
+    },
+    "ZoneStandingsRecord": {
+      "title": "Zone Standings Record",
+      "description": "Official standings table for a single zone with verified balance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "seasonYear": { "type": "string" },
+        "phase": { "type": "string" },
+        "zone": { "type": "string" },
+        "entries": { "type": "array" },
+        "provenance": { "type": "object" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "seasonYear", "phase", "zone", "entries"]
+    },
+    "AnnualStandingsRecord": {
+      "title": "Annual Standings Record",
+      "description": "Official annual accumulated table for all 30 teams",
+      "type": "object",
+      "properties": {
+        "seasonYear": { "type": "string" },
+        "entries": { "type": "array" },
+        "provenance": { "type": "object" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["seasonYear", "entries"]
+    },
+    "DataSourceRecord": {
+      "title": "Data Source Record",
+      "description": "Registered data provider status and metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "rateLimitPerMinute": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "status"]
+    },
+    "DataIngestionRunRecord": {
+      "title": "Data Ingestion Run Log",
+      "description": "Log of ingestion runs, validations and record counts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sourceId": { "type": "string" },
+        "startedAt": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "recordsIngested": { "type": "number" },
+        "recordsVerified": { "type": "number" },
+        "inconsistenciesCount": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "sourceId", "status"]
+    },
     "UserCabalaProfile": {
       "title": "User Profile",
       "description": "User profile with favorite club and competitive stats",
@@ -66,6 +165,30 @@
     "/rules/{ruleId}": {
       "schema": "CompetitionRule",
       "description": "Competition official regulations"
+    },
+    "/teams/{teamId}": {
+      "schema": "TeamRecord",
+      "description": "Official Primera División clubs repository"
+    },
+    "/matches/{matchId}": {
+      "schema": "MatchRecord",
+      "description": "Fixtures, live and completed matches"
+    },
+    "/standings/{standingId}": {
+      "schema": "ZoneStandingsRecord",
+      "description": "Apertura and Clausura verified zone standings"
+    },
+    "/annual_standings/{seasonYear}": {
+      "schema": "AnnualStandingsRecord",
+      "description": "Annual 30-club accumulated standings"
+    },
+    "/data_sources/{sourceId}": {
+      "schema": "DataSourceRecord",
+      "description": "Tracked external data sources"
+    },
+    "/data_ingestion_runs/{runId}": {
+      "schema": "DataIngestionRunRecord",
+      "description": "Ingestion execution history and provenance runs"
     },
     "/users/{userId}": {
       "schema": "UserCabalaProfile",

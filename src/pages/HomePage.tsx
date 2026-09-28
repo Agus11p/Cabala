@@ -3,6 +3,7 @@ import { Match, Team, StandingRow, NewsInsight, UserProfile, TableType } from '.
 import { MatchCard } from '../components/matches/MatchCard';
 import { TeamBadge } from '../components/common/TeamBadge';
 import { Zap, ChevronRight, Trophy, Flame, User, ArrowUpRight, ShieldCheck, Clock } from 'lucide-react';
+import { formatStatValue } from '../utils/formatters';
 
 interface HomePageProps {
   featuredMatch: Match | null;
@@ -275,9 +276,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-[11px] font-num text-[#8B949E]">{row.played} PJ</span>
+                        <span className="text-[11px] font-num text-[#8B949E]">{formatStatValue(row.played)} PJ</span>
                         <span className="font-num font-black text-sm text-[#F1EDE6] group-hover:text-[#DCA842] tabular-nums min-w-[28px] text-right">
-                          {row.points} <span className="text-[9px] text-[#8B949E] font-medium">pts</span>
+                          {formatStatValue(row.points)} <span className="text-[9px] text-[#8B949E] font-medium">pts</span>
                         </span>
                       </div>
                     </div>

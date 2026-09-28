@@ -1,9 +1,9 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { firebaseAppConfig } from './firebaseConfig';
 
-export const app = initializeApp(firebaseAppConfig);
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseAppConfig);
 export const db = getFirestore(app, firebaseAppConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 

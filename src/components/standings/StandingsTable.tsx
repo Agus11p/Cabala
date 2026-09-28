@@ -2,6 +2,8 @@ import React from 'react';
 import { StandingRow, PromediosRow, TableType, UIState, DataInconsistencyRecord } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
 import { ShieldAlert, AlertTriangle } from 'lucide-react';
+import { formatStatValue } from '../../utils/formatters';
+import { SinDatoBadge } from '../common/SinDatoBadge';
 
 interface StandingsTableProps {
   tableType: TableType;
@@ -81,21 +83,22 @@ export const StandingsTable: React.FC<StandingsTableProps> = ({
         <div className="w-12 h-12 rounded-2xl bg-[#181C22] border border-white/[0.08] flex items-center justify-center mx-auto text-[#DCA842]">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <div className="space-y-1">
-          <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
-            {isPromedios ? 'Tabla de Promedios Oficiales No Disponible' : 'Datos no disponibles'}
-          </h3>
+        <div className="space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <SinDatoBadge size="sm" />
+            <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
+              {isPromedios ? 'Tabla de Promedios' : 'Datos no disponibles'}
+            </h3>
+          </div>
           <p className="text-xs text-[#8B949E] max-w-lg mx-auto leading-relaxed">
             {isPromedios
               ? 'El proveedor de datos (ESPN) no provee actualmente la tabla de coeficientes acumulados de 3 temporadas (2024, 2025 y 2026). En cumplimiento estricto con las reglas de CÁBALA, no se inventan promedios simulados.'
               : (unavailableMessage || 'La información requerida no está disponible en el proveedor en este momento.')}
           </p>
         </div>
-        {isPromedios && (
-          <div className="inline-block px-3.5 py-1.5 rounded-lg bg-[#181C22] border border-white/[0.08] text-[11px] text-[#DCA842] font-semibold">
-            Integridad Garantizada · Estado: available: false
-          </div>
-        )}
+        <div className="inline-block px-3.5 py-1.5 rounded-lg bg-[#181C22] border border-white/[0.08] text-[11px] text-[#DCA842] font-semibold">
+          Estado Oficial: SIN DATO · available: false
+        </div>
       </div>
     );
   }
@@ -161,8 +164,8 @@ export const StandingsTable: React.FC<StandingsTableProps> = ({
               else if (isSudamericana) indicatorColor = 'bg-[#4A90E2]';
               else if (isRelegation) indicatorColor = 'bg-[#E63946]';
 
-              // DG format
-              const dgText = standRow.goalDiff > 0 ? `+${standRow.goalDiff}` : `${standRow.goalDiff}`;
+              // DG format strictly distinguishing 0 from missing data
+              const dgText = formatStatValue(standRow.goalDiff, { sign: true });
               const dgColor = standRow.goalDiff > 0
                 ? 'text-[#10B981]'
                 : standRow.goalDiff < 0
@@ -198,32 +201,32 @@ export const StandingsTable: React.FC<StandingsTableProps> = ({
 
                   {/* PJ */}
                   <td className="py-3 px-2 sm:px-3 text-center font-num text-[#8B949E] text-xs sm:text-sm">
-                    {standRow.played}
+                    {formatStatValue(standRow.played)}
                   </td>
 
                   {/* PG (sm+) */}
                   <td className="py-3 px-2 text-center hidden sm:table-cell font-num text-[#8B949E] text-xs sm:text-sm">
-                    {standRow.won}
+                    {formatStatValue(standRow.won)}
                   </td>
 
                   {/* PE (sm+) */}
                   <td className="py-3 px-2 text-center hidden sm:table-cell font-num text-[#8B949E] text-xs sm:text-sm">
-                    {standRow.drawn}
+                    {formatStatValue(standRow.drawn)}
                   </td>
 
                   {/* PP (sm+) */}
                   <td className="py-3 px-2 text-center hidden sm:table-cell font-num text-[#8B949E] text-xs sm:text-sm">
-                    {standRow.lost}
+                    {formatStatValue(standRow.lost)}
                   </td>
 
                   {/* GF (md+) */}
                   <td className="py-3 px-2 text-center hidden md:table-cell font-num text-[#8B949E] text-xs">
-                    {standRow.goalsFor}
+                    {formatStatValue(standRow.goalsFor)}
                   </td>
 
                   {/* GC (md+) */}
                   <td className="py-3 px-2 text-center hidden md:table-cell font-num text-[#8B949E] text-xs">
-                    {standRow.goalsAgainst}
+                    {formatStatValue(standRow.goalsAgainst)}
                   </td>
 
                   {/* DG */}
@@ -233,7 +236,7 @@ export const StandingsTable: React.FC<StandingsTableProps> = ({
 
                   {/* PTS (Visual Hero) */}
                   <td className="py-3 px-3 sm:px-5 text-right font-num font-black text-sm sm:text-base text-[#DCA842] bg-white/[0.02] tabular-nums">
-                    {standRow.points}
+                    {formatStatValue(standRow.points)}
                   </td>
                 </tr>
               );

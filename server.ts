@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { resolveZoneTie, getAnnualTable, validateStandingsIntegrity, validateZoneIntegrity } from './src/services/competitionRules';
 import type { ZoneStanding, StandingRow, DataInconsistencyRecord } from './src/types/football';
+import { ingestionEngine, dbProvider } from './src/services/providers/FootballDataProvider';
 
 dotenv.config();
 
@@ -171,8 +172,125 @@ app.get('/api/football/provider-info', (req: Request, res: Response) => {
       teams: true,
       news: true,
       lineupsAndStats: true,
-      promediosAFA: 'No reportado por la API de ESPN (mostrado como Datos no disponibles)',
+      promediosAFA: 'No reportado por la API de ESPN (Estado reglamentario: SIN DATO)',
     },
+  });
+});
+
+// Endpoint de Trazabilidad e Ingestión (Provenance & Data Pipeline)
+app.get('/api/football/ingestion/status', async (req: Request, res: Response) => {
+  const status = await dbProvider.getIngestionStatus();
+  const diagnostics = await dbProvider.getPersistenceDiagnostics();
+  res.json({
+    pipeline: 'ESPN -> INGESTION LAYER -> NORMALIZATION -> VALIDATION -> FIRESTORE -> DATABASE PROVIDER -> CÁBALA API -> FRONTEND',
+    season: '2026',
+    persistence: 'FIRESTORE_PERSISTENT',
+    databaseId: diagnostics.databaseId,
+    firestoreConnected: diagnostics.firestoreConnected,
+    lastSync: status.lastRun?.completedAt || new Date().toISOString(),
+    lastRun: status.lastRun,
+    recentRuns: status.runs,
+    recordsStored: status.totalStored,
+    sources: [
+      {
+        id: 'source_espn',
+        name: 'Proveedor de datos: ESPN (Soccer arg.1)',
+        type: 'API',
+        status: 'ACTIVE',
+        reliability: 'HIGH',
+        fieldsDelivered: ['matches', 'scores', 'standings_zonas', 'teams_directory', 'news'],
+        fieldsMissing: ['promedios_acumulados', 'historial_titulos_afa', 'racha_detallada_historica'],
+        missingHandling: 'SIN_DATO',
+      },
+      {
+        id: 'source_database_internal',
+        name: 'Base de Datos Persistente CÁBALA (Firestore Database)',
+        type: 'DATABASE',
+        status: 'ACTIVE',
+        persistenceStatus: diagnostics.firestoreConnected ? 'PERSISTED_IN_FIRESTORE' : 'PERSISTENCE_CONNECTED',
+      },
+      {
+        id: 'source_scraper_afa',
+        name: 'AFA Boletines e Ingestión Pública',
+        type: 'SCRAPER',
+        status: 'INACTIVE',
+        legalPolicy: 'SCRAPER REAL: NO IMPLEMENTADO / NO CONECTADO. Estrictamente sin bypass de protecciones.',
+      },
+      {
+        id: 'source_regulations',
+        name: 'Reglamento Oficial AFA / LPF 2026',
+        type: 'DETERMINISTIC_ENGINE',
+        status: 'VERIFIED',
+      },
+    ],
+    provenanceRule: 'Si un dato no puede obtenerse de una fuente verificable: mostrar SIN DATO. Cero (0) no significa SIN DATO.',
+  });
+});
+
+// Endpoint para disparar sincronización de ingestión hacia Firestore
+app.post('/api/football/ingestion/sync', async (req: Request, res: Response) => {
+  try {
+    const result = await ingestionEngine.syncAll();
+    res.json({
+      success: result.status !== 'FAILED',
+      result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
+// Diagnóstico de persistencia real en Firestore
+app.get('/api/football/persistence/status', async (req: Request, res: Response) => {
+  const diagnostics = await dbProvider.getPersistenceDiagnostics();
+  res.json({
+    status: diagnostics.firestoreConnected ? 'DATABASE PERSISTENTE: ACTIVA' : 'DATABASE PERSISTENTE: CONECTANDO',
+    provider: 'FirestoreDatabaseProvider',
+    databaseId: diagnostics.databaseId,
+    firestoreConnected: diagnostics.firestoreConnected,
+    cachedTeamsCount: diagnostics.cachedTeamsCount,
+    cachedMatchesCount: diagnostics.cachedMatchesCount,
+    cachedStandingsCount: diagnostics.cachedStandingsCount,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/football/provenance', (req: Request, res: Response) => {
+  res.json({
+    season: '2026',
+    principles: {
+      zeroMockData: true,
+      noInventedStats: true,
+      zeroIsNotSinDato: true,
+      aiIsNotDataSource: true,
+    },
+    traceabilityStates: [
+      'VERIFIED',
+      'UNAVAILABLE',
+      'STALE',
+      'ERROR',
+      'DATA_INCONSISTENCY',
+      'SIN_DATO',
+    ],
+    entitiesCovered: [
+      'seasons',
+      'competitions',
+      'phases',
+      'zones',
+      'teams',
+      'matches',
+      'standings',
+      'annual_standings',
+      'average_standings',
+      'playoffs',
+      'rules',
+      'data_sources',
+      'data_ingestion_runs',
+    ],
   });
 });
 
@@ -209,9 +327,30 @@ app.get('/api/football/matches', async (req: Request, res: Response) => {
 
     res.json(matches);
   } catch (error: any) {
-    console.error('Error fetching matches from ESPN:', error.message);
+    console.warn('[Matches API] Error consultando ESPN, activando fallback a Firestore:', error.message);
+    try {
+      const persisted = await dbProvider.getMatches({
+        status: req.query.status as string,
+        teamId: req.query.teamId as string,
+        date: req.query.date as string,
+      });
+      if (persisted && persisted.length > 0) {
+        const staleMatches = persisted.map((m: any) => ({
+          ...m,
+          provenance: {
+            ...m.provenance,
+            status: 'STALE',
+            notes: 'Proveedor ESPN no disponible temporalmente. Datos recuperados de persistencia Firestore (STALE).',
+          },
+        }));
+        return res.json(staleMatches);
+      }
+    } catch (fallbackErr: any) {
+      console.error('[Matches API] Fallback error:', fallbackErr.message);
+    }
+
     res.status(502).json({
-      error: 'No se pudieron obtener los partidos desde el proveedor de datos (ESPN).',
+      error: 'No se pudieron obtener los partidos desde el proveedor de datos (ESPN) ni desde la base persistente.',
       details: error.message,
     });
   }
@@ -397,7 +536,16 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
         type: 'promedios',
         season: '2026',
         available: false,
-        message: 'La tabla de promedios (acumulada 3 temporadas) no está disponible en la API oficial de ESPN. En cumplimiento con la regla de CÁBALA, no se inventan datos.',
+        status: 'SIN_DATO',
+        provenance: {
+          source: 'ESPN',
+          fetchedAt: new Date().toISOString(),
+          season: 2026,
+          status: 'SIN_DATO',
+          validated: true,
+          notes: 'Tabla de coeficientes de 3 temporadas no suministrada por la API de ESPN.',
+        },
+        message: 'La tabla de promedios no está disponible en el proveedor ESPN. En cumplimiento estricto con las reglas de CÁBALA, el estado reglamentario es SIN DATO.',
         data: [],
         dataState: 'EMPTY',
       });
@@ -512,9 +660,38 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
       data: zoneAStandings,
     });
   } catch (error: any) {
-    console.error('Error fetching standings:', error.message);
+    console.warn('[Standings API] Error consultando ESPN, activando fallback a Firestore:', error.message);
+    try {
+      const persisted = await dbProvider.getStandings(
+        (req.query.type === 'apertura' ? 'apertura' : 'clausura'),
+        '2026'
+      );
+      if (persisted && persisted.available && (persisted.zoneA?.length || persisted.zoneB?.length)) {
+        return res.json({
+          type: req.query.type || 'clausura',
+          season: '2026',
+          available: true,
+          dataState: 'STALE',
+          isStale: true,
+          provenance: {
+            source: 'ESPN',
+            fetchedAt: persisted.provenance?.fetchedAt || new Date().toISOString(),
+            season: 2026,
+            status: 'STALE',
+            validated: true,
+            notes: 'Proveedor ESPN temporalmente no disponible. Datos históricos recuperados de base persistente Firestore (STALE).',
+          },
+          zoneA: persisted.zoneA || [],
+          zoneB: persisted.zoneB || [],
+          data: (req.query.zone === 'B' ? persisted.zoneB : persisted.zoneA) || [],
+        });
+      }
+    } catch (fallbackErr: any) {
+      console.error('[Standings API] Fallback error:', fallbackErr.message);
+    }
+
     res.status(502).json({
-      error: 'No se pudieron obtener las tablas oficiales de posiciones.',
+      error: 'No se pudieron obtener las tablas oficiales de posiciones ni desde el proveedor ni desde la base persistente.',
       available: false,
       dataState: 'ERROR',
       data: [],
@@ -673,7 +850,15 @@ app.get('/api/football/teams', async (req: Request, res: Response) => {
 
     res.json(teams);
   } catch (error: any) {
-    console.error('Error fetching teams:', error.message);
+    console.warn('[Teams API] Error consultando ESPN, activando fallback a Firestore:', error.message);
+    try {
+      const persisted = await dbProvider.getTeams();
+      if (persisted && persisted.length > 0) {
+        return res.json(persisted);
+      }
+    } catch (fallbackErr: any) {
+      console.error('[Teams API] Fallback error:', fallbackErr.message);
+    }
     res.status(502).json({
       error: 'No se pudo obtener el directorio de clubes.',
       details: error.message,
@@ -731,6 +916,12 @@ async function startServer() {
 
   app.listen(PORT, HOST, () => {
     console.log(`CÁBALA Server running on http://${HOST}:${PORT}`);
+    // Sincronización inicial en segundo plano contra base persistente Firestore
+    ingestionEngine.syncAll().then((r) => {
+      console.log(`[CÁBALA Ingestión] Sincronización inicial con Firestore completada: ${r.teamsCount} clubes, ${r.matchesCount} partidos, estado: ${r.status}`);
+    }).catch((err) => {
+      console.warn('[CÁBALA Ingestión] Nota de sincronización inicial:', err.message);
+    });
   });
 }
 

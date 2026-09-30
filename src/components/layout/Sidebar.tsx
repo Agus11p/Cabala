@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
-import { Home, Flame, Trophy, Shield, Zap, Crown, Calendar, MessageSquare, Bot } from 'lucide-react';
+import { Home, Flame, Trophy, Shield, Zap, Crown, Calendar, MessageSquare, Bot, ShieldCheck } from 'lucide-react';
 
 interface SidebarProps {
   currentView: string;
@@ -89,6 +89,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Shield className="w-4 h-4" />
             <span>Clubes</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('auditoria')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              currentView === 'auditoria'
+                ? 'bg-[#181C22] text-[#DCA842] font-bold border border-white/[0.08]'
+                : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#121519]'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Auditoría de Datos</span>
           </button>
         </div>
 

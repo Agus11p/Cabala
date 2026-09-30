@@ -65,6 +65,17 @@ export class NemotronProvider implements AIProvider {
       } else {
         content = `Ficha de Club: ${res.nombre} (${res.codigo})\n• Estadio: ${res.estadio || 'SIN DATO'}\n• Sede: ${res.ciudad || 'SIN DATO'}\n• Zona AFA: ${res.zonaAsignada || 'SIN DATO'}`;
       }
+    } else if (contextData?.toolName === 'searchDiscovery') {
+      const res = contextData.toolResult;
+      const verified = (res.results || []).filter((r: any) => r.status === 'VERIFIED');
+      if (verified.length === 0) {
+        content = `SIN DATO: No se halló una fuente oficial verificable para certificar esta información para la Temporada 2026. Principio CÁBALA: INVENTADO = MAL = SIN DATO.`;
+      } else {
+        const list = verified
+          .map((r: any) => `• ${r.source} (${r.sourceDomain}):\n  "${r.content}"\n  Enlace: ${r.sourceUrl}\n  Estado: ${r.status}`)
+          .join('\n\n');
+        content = `Fuentes Oficiales Descubiertas y Validadas:\n\n${list}\n\n* Capa de descubrimiento: Google Search · Validación: 9 Pasos CÁBALA.`;
+      }
     } else {
       content = 'Consulta procesada por el motor determinista de CÁBALA con datos verificados de Primera División.';
     }

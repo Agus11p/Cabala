@@ -30,9 +30,10 @@ import {
 interface StandingsPageProps {
   onSelectClub: (clubId: string) => void;
   initialTable?: TableType;
+  onTableChange?: (table: TableType) => void;
 }
 
-export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, initialTable }) => {
+export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, initialTable, onTableChange }) => {
   const [activeTable, setActiveTable] = useState<TableType>(initialTable || 'clausura');
 
   useEffect(() => {
@@ -226,7 +227,13 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
         <TabNav
           tabs={tableTabs}
           activeTab={activeTable}
-          onChange={(tabId) => setActiveTable(tabId as TableType)}
+          onChange={(tabId) => {
+            const next = tabId as TableType;
+            setActiveTable(next);
+            if (onTableChange) {
+              onTableChange(next);
+            }
+          }}
         />
       </div>
 

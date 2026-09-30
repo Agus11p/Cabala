@@ -1,7 +1,14 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, setLogLevel } from 'firebase/firestore';
 import { firebaseAppConfig } from './firebaseConfig';
+
+// Silence Firestore client internal gRPC stream logging so quota stream errors do not pollute logs
+try {
+  setLogLevel('silent');
+} catch {
+  // Ignore in environments where setLogLevel is not supported
+}
 
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseAppConfig);
 export const db = getFirestore(app, firebaseAppConfig.firestoreDatabaseId);

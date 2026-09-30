@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Team, Match } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
 import { MatchCard } from '../matches/MatchCard';
 import { TabNav } from '../common/TabNav';
-import { ArrowLeft, MapPin, Calendar, Trophy, Star, Shield, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Trophy, Star, Shield, AlertCircle, ExternalLink, ShieldCheck } from 'lucide-react';
 import { formatStatValue, formatTextValue } from '../../utils/formatters';
 import { SinDatoBadge } from '../common/SinDatoBadge';
+import { footballService } from '../../services/footballService';
 
 interface ClubDetailViewProps {
   team: Team;
@@ -27,6 +28,23 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
   onToggleFavorite,
 }) => {
   const [activeTab, setActiveTab] = useState<ClubTab>('resumen');
+  const [dossier, setDossier] = useState<any>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadInstitutional() {
+      try {
+        const d = await footballService.getClubInstitutional(team.id, team.name);
+        if (isMounted) setDossier(d);
+      } catch (err) {
+        console.error('Error cargando dossier institucional:', err);
+      }
+    }
+    loadInstitutional();
+    return () => {
+      isMounted = false;
+    };
+  }, [team.id, team.name]);
 
   const teamMatches = matches.filter(
     (m) =>
@@ -121,21 +139,38 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
               <div className="flex flex-wrap items-center gap-y-1.5 gap-x-5 text-xs text-[#8B949E] mt-3">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-[#DCA842]" />
-                  <span>{formatTextValue(team.city)}</span>
+                  <span>{dossier?.city || formatTextValue(team.city)}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-[#8B949E]" />
                   <span>
                     Fundación:{' '}
                     <strong className="text-[#F1EDE6]">
-                      {team.founded && team.founded > 1800 ? team.founded : <SinDatoBadge inline />}
+                      {dossier?.founded || (team.founded && team.founded > 1800) ? (
+                        dossier?.founded || team.founded
+                      ) : (
+                        <SinDatoBadge inline />
+                      )}
                     </strong>
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Shield className="w-3.5 h-3.5 text-[#8B949E]" />
-                  <span>{formatTextValue(team.stadium)}</span>
+                  <span>{dossier?.stadium || formatTextValue(team.stadium)}</span>
                 </div>
+                {dossier?.officialWebsiteUrl && (
+                  <div className="flex items-center gap-1.5">
+                    <ExternalLink className="w-3.5 h-3.5 text-[#DCA842]" />
+                    <a
+                      href={dossier.officialWebsiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#DCA842] hover:underline flex items-center gap-1 font-semibold"
+                    >
+                      <span>Sitio Oficial</span>
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -248,25 +283,71 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
             </div>
           )}
 
-          {/* Institutional Card */}
-          <div className="p-6 rounded-3xl bg-[#121519] border border-[#22272E]">
-            <h3 className="font-editorial font-bold text-lg text-[#F1EDE6] mb-4">
-              Perfil Institucional
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-[#8B949E]">
-              <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
-                <span className="block mb-1">Nombre Completo</span>
-                <span className="font-bold text-[#F1EDE6] text-sm">{team.name}</span>
+          {/* Institutional Card with Official Verification */}
+          <div className="p-6 rounded-3xl bg-[#121519] border border-[#22272E] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#22272E] pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#30A46C]" />
+                <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
+                  Perfil Institucional & Verificación AFA
+                </h3>
               </div>
-              <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
-                <span className="block mb-1">Localidad</span>
-                <span className="font-bold text-[#F1EDE6] text-sm">{formatTextValue(team.city)}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
-                <span className="block mb-1">Estadio</span>
-                <span className="font-bold text-[#F1EDE6] text-sm">{formatTextValue(team.stadium)}</span>
+              <div>
+                {dossier?.status === 'VERIFIED' ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#30A46C]/15 text-[#30A46C] border border-[#30A46C]/30">
+                    VERIFIED · Dominio Institucional Oficial
+                  </span>
+                ) : (
+                  <SinDatoBadge inline label="SIN DATO OFICIAL" />
+                )}
               </div>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-[#8B949E]">
+              <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
+                <span className="block mb-1 text-[10px] uppercase font-bold text-[#8B949E]">Nombre Completo</span>
+                <span className="font-bold text-[#F1EDE6] text-sm block">{dossier?.name || team.name}</span>
+                <span className="text-[11px] text-[#8B949E] mt-1 block">Abreviatura: {team.code}</span>
+              </div>
+              <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
+                <span className="block mb-1 text-[10px] uppercase font-bold text-[#8B949E]">Sede y Jurisdicción</span>
+                <span className="font-bold text-[#F1EDE6] text-sm block">
+                  {dossier?.city ? `${dossier.city}, ${dossier.province}` : formatTextValue(team.city)}
+                </span>
+                <span className="text-[11px] text-[#8B949E] mt-1 block">Afiliado directo AFA</span>
+              </div>
+              <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
+                <span className="block mb-1 text-[10px] uppercase font-bold text-[#8B949E]">Estadio Oficial</span>
+                <span className="font-bold text-[#F1EDE6] text-sm block">
+                  {dossier?.stadium || formatTextValue(team.stadium)}
+                </span>
+                <span className="text-[11px] text-[#8B949E] mt-1 block">Capacidad según AFA</span>
+              </div>
+            </div>
+
+            {dossier?.officialWebsiteUrl && (
+              <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#8B949E] block">Canal Oficial Descubierto</span>
+                  <span className="font-mono text-xs text-[#DCA842]">{dossier.officialDomain}</span>
+                </div>
+                <a
+                  href={dossier.officialWebsiteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#DCA842]/10 text-[#DCA842] hover:bg-[#DCA842]/20 font-semibold transition-colors shrink-0"
+                >
+                  <span>Portal Institucional del Club</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
+
+            {dossier?.verificationNotes && (
+              <div className="text-[11px] text-[#8B949E] bg-[#181C22] p-3 rounded-xl border border-[#22272E]">
+                <strong>Nota de Procedencia CÁBALA:</strong> {dossier.verificationNotes}
+              </div>
+            )}
           </div>
         </div>
       )}

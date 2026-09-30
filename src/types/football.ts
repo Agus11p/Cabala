@@ -166,9 +166,12 @@ export interface AverageStanding {
   teamId: string;
   team?: Club;
   seasons?: {
-    season2024Pts: number;
-    season2025Pts: number;
-    season2026Pts: number;
+    season2024Pts: number | null;
+    season2025Pts: number | null;
+    season2026Pts: number | null;
+    season2024Played?: number | null;
+    season2025Played?: number | null;
+    season2026Played?: number | null;
   };
   totalPoints: number;
   totalPlayed: number;

@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx runTests.ts",
     "test:provider": "tsx scripts/test-provider.ts",
+    "test:promiedos": "tsx scripts/test-promiedos.ts",
+    "test:promedios-math": "tsx scripts/test-promedios-math.ts",
     "test:persistence": "tsx scripts/test-persistence.ts"
   },
   "dependencies": {

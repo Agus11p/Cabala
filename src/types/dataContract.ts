@@ -9,14 +9,19 @@
 
 export type ProvenanceStatus =
   | 'VERIFIED'
+  | 'PARTIAL'
   | 'UNAVAILABLE'
   | 'STALE'
   | 'ERROR'
   | 'DATA_INCONSISTENCY'
-  | 'SIN_DATO';
+  | 'SIN_DATO'
+  | 'REQUIERE_VERIFICACIÓN_REGLAMENTARIA'
+  | 'SECONDARY_SOURCE_ONLY';
 
 export interface ProvenanceMeta {
-  source: 'ESPN' | 'AFA_REGULATIONS' | 'INTERNAL_ENGINE' | 'SCRAPER_AFA' | 'MANUAL_VERIFIED';
+  source: 'ESPN' | 'AFA_REGULATIONS' | 'INTERNAL_ENGINE' | 'SCRAPER_AFA' | 'MANUAL_VERIFIED' | 'PROMIEDOS';
+  sourceUrl?: string;
+  sourceId?: string;
   fetchedAt: string;
   season: number | string;
   status: ProvenanceStatus;
@@ -110,6 +115,30 @@ export interface MatchEntity {
   events?: any[];
   stats?: any;
   provenance: ProvenanceMeta;
+  season?: number | string;
+  phase?: 'apertura' | 'clausura' | 'playoffs';
+  zone?: 'A' | 'B' | 'interzonal';
+  kickoffTime?: string | null;
+  homeTeam?: any;
+  awayTeam?: any;
+  venue?: { name?: string | null; city?: string | null } | null;
+  source?: string;
+  sourceId?: string;
+  firstSeenAt?: string;
+  lastSeenAt?: string;
+  ingestionRunId?: string;
+  isStale?: boolean;
+  verificationStatus?: ProvenanceStatus;
+  primarySource?: string;
+  secondarySources?: string[];
+  crossValidation?: {
+    status: 'MATCH' | 'CONFLICT' | 'ONLY_ESPN' | 'ONLY_PROMIEDOS' | 'UNVERIFIED';
+    checkedAt: string;
+    sources: string[];
+    differences?: string[];
+    notes?: string;
+  };
+  tvNetworks?: string[];
 }
 
 export interface StandingEntity {
@@ -150,11 +179,15 @@ export interface AnnualStandingEntity {
 export interface AverageStandingEntity {
   id: string;
   teamId: string;
+  team?: any;
   position: number | null;
   seasons: {
     season2024Pts: number | null;
     season2025Pts: number | null;
     season2026Pts: number | null;
+    season2024Played?: number | null;
+    season2025Played?: number | null;
+    season2026Played?: number | null;
   } | null;
   totalPoints: number | null;
   totalPlayed: number | null;

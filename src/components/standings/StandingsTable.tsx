@@ -76,8 +76,8 @@ export const StandingsTable: React.FC<StandingsTableProps> = ({
     );
   }
 
-  // EMPTY / UNAVAILABLE STATE (ESPECIALLY PROMEDIOS)
-  if (!data || data.length === 0 || isPromedios) {
+  // EMPTY / UNAVAILABLE STATE
+  if (!data || data.length === 0) {
     return (
       <div className="rounded-2xl bg-[#121519] border border-white/[0.08] p-8 sm:p-12 text-center space-y-4">
         <div className="w-12 h-12 rounded-2xl bg-[#181C22] border border-white/[0.08] flex items-center justify-center mx-auto text-[#DCA842]">
@@ -92,12 +92,133 @@ export const StandingsTable: React.FC<StandingsTableProps> = ({
           </div>
           <p className="text-xs text-[#8B949E] max-w-lg mx-auto leading-relaxed">
             {isPromedios
-              ? 'El proveedor de datos (ESPN) no provee actualmente la tabla de coeficientes acumulados de 3 temporadas (2024, 2025 y 2026). En cumplimiento estricto con las reglas de CÁBALA, no se inventan promedios simulados.'
+              ? 'La tabla de promedios no está disponible en este momento.'
               : (unavailableMessage || 'La información requerida no está disponible en el proveedor en este momento.')}
           </p>
         </div>
         <div className="inline-block px-3.5 py-1.5 rounded-lg bg-[#181C22] border border-white/[0.08] text-[11px] text-[#DCA842] font-semibold">
-          Estado Oficial: SIN DATO · available: false
+          Estado: SIN DATO · available: false
+        </div>
+      </div>
+    );
+  }
+
+  // RENDERIZADO DEDICADO DE TABLA DE PROMEDIOS (COEFICIENTES TRIENALES 2024-2026)
+  if (isPromedios) {
+    return (
+      <div className="overflow-hidden rounded-2xl bg-[#121519] border border-white/[0.08]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-3.5 bg-[#15191F] border-b border-white/[0.08] gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-md bg-[#DCA842] text-[#0A0C0E] font-black text-xs flex items-center justify-center font-num">
+              %
+            </span>
+            <h3 className="font-editorial font-bold text-base text-[#F1EDE6] tracking-wide">
+              Tabla de Promedios (30 Clubes)
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-[#E5A93C] uppercase tracking-wider px-2 py-0.5 rounded bg-[#E5A93C]/10 border border-[#E5A93C]/20">
+              SECONDARY_SOURCE_ONLY · Promiedos
+            </span>
+            <span className="text-[11px] font-semibold text-[#8B949E] uppercase tracking-wider hidden md:inline">
+              Temporadas 2024 · 2025 · 2026
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/[0.08] text-[11px] font-bold text-[#8B949E] uppercase tracking-wider bg-[#15191F]">
+                <th className="py-3 px-2 sm:px-3 text-center w-10 sm:w-12">#</th>
+                <th className="py-3 px-3 sm:px-4 min-w-[140px] sm:min-w-[180px]">Club</th>
+                <th className="py-3 px-2 sm:px-3 text-center font-num">Pts 2024</th>
+                <th className="py-3 px-2 sm:px-3 text-center font-num">Pts 2025</th>
+                <th className="py-3 px-2 sm:px-3 text-center font-num text-[#DCA842]">Pts 2026</th>
+                <th className="py-3 px-2 sm:px-3 text-center font-num text-[#8B949E]">PJ Tot</th>
+                <th className="py-3 px-2 sm:px-3 text-center font-num text-[#F1EDE6]">Pts Tot</th>
+                <th className="py-3 px-3 sm:px-5 text-right font-num text-[#DCA842] bg-white/[0.02]">Promedio</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04] text-xs sm:text-sm">
+              {(data as PromediosRow[]).map((row, idx) => {
+                const pos = row.position || idx + 1;
+                const team = row.team;
+                const teamName = team?.shortName || team?.name || `Club ${row.teamId}`;
+                const isRelegation = pos === 30;
+                const isDanger = pos >= 28;
+
+                let indicatorColor = 'bg-transparent';
+                if (isRelegation) indicatorColor = 'bg-[#E63946]';
+                else if (isDanger) indicatorColor = 'bg-[#F59E0B]';
+
+                const p24 = row.seasons?.season2024Played === 0 ? '—' : row.seasons?.season2024Pts ?? '—';
+                const p25 = row.seasons?.season2025Played === 0 ? '—' : row.seasons?.season2025Pts ?? '—';
+                const p26 = row.seasons?.season2026Pts ?? '—';
+                const coefStr = typeof row.average === 'number' ? row.average.toFixed(3) : 'SIN DATO';
+
+                return (
+                  <tr
+                    key={row.teamId}
+                    onClick={() => onSelectClub(row.teamId)}
+                    className="cursor-pointer transition-colors hover:bg-white/[0.03] group relative"
+                  >
+                    <td className="py-3 px-2 sm:px-3 text-center relative">
+                      <span
+                        aria-hidden="true"
+                        className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r ${indicatorColor}`}
+                      />
+                      <span className="font-num font-bold text-xs sm:text-sm text-[#8B949E] group-hover:text-[#F1EDE6] transition-colors tabular-nums">
+                        {pos}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 sm:px-4">
+                      <div className="flex items-center gap-2.5 sm:gap-3">
+                        <TeamBadge teamId={row.teamId} team={team} logoUrl={team?.logo} size="xs" />
+                        <span className="font-medium text-xs sm:text-sm text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors truncate">
+                          {teamName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-2 sm:px-3 text-center font-num text-[#8B949E] text-xs sm:text-sm">
+                      {p24}
+                    </td>
+                    <td className="py-3 px-2 sm:px-3 text-center font-num text-[#8B949E] text-xs sm:text-sm">
+                      {p25}
+                    </td>
+                    <td className="py-3 px-2 sm:px-3 text-center font-num font-bold text-[#DCA842] text-xs sm:text-sm">
+                      {p26}
+                    </td>
+                    <td className="py-3 px-2 sm:px-3 text-center font-num text-[#8B949E] text-xs sm:text-sm">
+                      {row.totalPlayed ?? 'SIN DATO'}
+                    </td>
+                    <td className="py-3 px-2 sm:px-3 text-center font-num font-semibold text-[#F1EDE6] text-xs sm:text-sm">
+                      {row.totalPoints ?? 'SIN DATO'}
+                    </td>
+                    <td className="py-3 px-3 sm:px-5 text-right font-num font-black text-sm sm:text-base text-[#DCA842] bg-white/[0.02] tabular-nums">
+                      {coefStr}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-t border-white/[0.08] px-4 py-2.5 bg-[#121519] flex flex-wrap items-center justify-between gap-3 text-[11px] text-[#8B949E]">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-xs bg-[#E63946]" />
+              <span>30°: Descenso directo por Promedios a Primera Nacional</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-xs bg-[#F59E0B]" />
+              <span>28°-29°: Zona de riesgo de permanencia</span>
+            </div>
+          </div>
+          <div className="text-[10px] text-[#8B949E] italic">
+            Fórmula: Pts Totales / PJ Totales (redondeo a 3 decimales). Fuente: Promiedos (SECONDARY_SOURCE_ONLY).
+          </div>
         </div>
       </div>
     );

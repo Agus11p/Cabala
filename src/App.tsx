@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
 import { footballService } from './services/footballService';
 import { Match, Team, StandingRow, NewsInsight, UserProfile, TableType } from './types/football';
 import { Navbar } from './components/layout/Navbar';
@@ -10,15 +10,14 @@ import { MatchCardSkeleton } from './components/common/SkeletonLoader';
 // Code-splitting: Lazy-load heavy views & modals to optimize initial bundle size & load time
 const MatchesPage = lazy(() => import('./pages/MatchesPage').then((m) => ({ default: m.MatchesPage })));
 const StandingsPage = lazy(() => import('./pages/StandingsPage').then((m) => ({ default: m.StandingsPage })));
+const CopasNacionalesPage = lazy(() => import('./pages/CopasNacionalesPage').then((m) => ({ default: m.CopasNacionalesPage })));
 const ClubsPage = lazy(() => import('./pages/ClubsPage').then((m) => ({ default: m.ClubsPage })));
-const DataAuditPage = lazy(() => import('./pages/DataAuditPage').then((m) => ({ default: m.DataAuditPage })));
 const MatchDetailView = lazy(() => import('./components/matches/MatchDetailView').then((m) => ({ default: m.MatchDetailView })));
 const ClubDetailView = lazy(() => import('./components/clubs/ClubDetailView').then((m) => ({ default: m.ClubDetailView })));
 const UserProfileModal = lazy(() => import('./components/layout/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
 const GameTeaserModal = lazy(() => import('./components/layout/GameTeaserModal').then((m) => ({ default: m.GameTeaserModal })));
-const PreguntaleACabalaModal = lazy(() => import('./components/layout/PreguntaleACabalaModal').then((m) => ({ default: m.PreguntaleACabalaModal })));
 
-type ViewType = 'inicio' | 'partidos' | 'tablas' | 'clubes' | 'auditoria';
+type ViewType = 'inicio' | 'partidos' | 'tablas' | 'copas_nacionales' | 'clubes';
 
 interface RouteState {
   view: ViewType;
@@ -63,11 +62,11 @@ function parseLocation(pathname: string): RouteState {
   if (cleanPath === '/tablas') {
     return { view: 'tablas', matchId: null, clubId: null, tableType: 'clausura' };
   }
+  if (cleanPath === '/copas-nacionales') {
+    return { view: 'copas_nacionales', matchId: null, clubId: null };
+  }
   if (cleanPath === '/clubes') {
     return { view: 'clubes', matchId: null, clubId: null };
-  }
-  if (cleanPath === '/data-audit') {
-    return { view: 'auditoria', matchId: null, clubId: null };
   }
 
   return { view: 'inicio', matchId: null, clubId: null };
@@ -76,13 +75,13 @@ function parseLocation(pathname: string): RouteState {
 function buildPath(view: ViewType, matchId?: string | null, clubId?: string | null, table?: TableType): string {
   if (matchId) return `/partido/${encodeURIComponent(matchId)}`;
   if (clubId) return `/club/${encodeURIComponent(clubId)}`;
-  if (view === 'auditoria') return '/data-audit';
   if (view === 'tablas') {
     if (table === 'promedios') return '/promedios';
     if (table === 'copas') return '/copas';
     if (table === 'playoffs') return '/playoffs';
     return '/tablas';
   }
+  if (view === 'copas_nacionales') return '/copas-nacionales';
   if (view === 'partidos') return '/partidos';
   if (view === 'clubes') return '/clubes';
   return '/';
@@ -106,7 +105,6 @@ export default function App() {
   // Modals
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isGameTeaserOpen, setIsGameTeaserOpen] = useState(false);
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
 
   // Core Data State
   const [matches, setMatches] = useState<Match[]>([]);
@@ -334,16 +332,23 @@ export default function App() {
   const clubRecent = clubMatches[0];
   const favoriteClubFeatured = clubLive || clubUpcoming || clubRecent || null;
 
+  // Partidos programados a futuro o en juego ordenados cronológicamente
+  const scheduledOrLiveMatches = useMemo(() => {
+    return matches
+      .filter((m: Match) => m.status === 'scheduled' || m.status === 'live')
+      .sort((a: Match, b: Match) => (a.timestamp || 0) - (b.timestamp || 0));
+  }, [matches]);
+
   const featuredMatch =
     favoriteClubFeatured ||
-    matches.find((m) => m.status === 'live') ||
-    matches.find((m) => m.status === 'scheduled') ||
-    matches[0] ||
+    scheduledOrLiveMatches.find((m: Match) => m.status === 'live') ||
+    scheduledOrLiveMatches[0] ||
+    matches[matches.length - 1] ||
     null;
 
-  const liveMatches = matches.filter((m) => m.status === 'live');
+  const liveMatches = matches.filter((m: Match) => m.status === 'live');
   // Partidos secundarios para la agenda compacta (excluyendo el principal destacado)
-  const upcomingMatches = matches.filter((m) => m.id !== featuredMatch?.id);
+  const upcomingMatches = scheduledOrLiveMatches.filter((m: Match) => m.id !== featuredMatch?.id);
 
   const pageLoadingFallback = (
     <div className="space-y-6 animate-pulse">
@@ -370,7 +375,6 @@ export default function App() {
           onSelectClub={handleSelectClub}
           onOpenProfile={() => setIsProfileOpen(true)}
           onOpenGame={() => setIsGameTeaserOpen(true)}
-          onOpenAiChat={() => setIsAiChatOpen(true)}
         />
       )}
 
@@ -384,7 +388,6 @@ export default function App() {
             user={userProfile}
             onOpenProfile={() => setIsProfileOpen(true)}
             onOpenGame={() => setIsGameTeaserOpen(true)}
-            onOpenAiChat={() => setIsAiChatOpen(true)}
           />
         )}
 
@@ -505,18 +508,22 @@ export default function App() {
                     </Suspense>
                   )}
 
-                  {currentView === 'clubes' && (
+                  {currentView === 'copas_nacionales' && (
                     <Suspense fallback={pageLoadingFallback}>
-                      <ClubsPage
+                      <CopasNacionalesPage
+                        topStandings={topStandings}
                         teams={teams}
                         onSelectClub={handleSelectClub}
                       />
                     </Suspense>
                   )}
 
-                  {currentView === 'auditoria' && (
+                  {currentView === 'clubes' && (
                     <Suspense fallback={pageLoadingFallback}>
-                      <DataAuditPage />
+                      <ClubsPage
+                        teams={teams}
+                        onSelectClub={handleSelectClub}
+                      />
                     </Suspense>
                   )}
                 </>
@@ -551,6 +558,9 @@ export default function App() {
                 <button onClick={() => handleNavigate('tablas')} className="hover:text-[#F1EDE6] transition-colors">
                   Tablas
                 </button>
+                <button onClick={() => handleNavigate('copas_nacionales')} className="hover:text-[#DCA842] text-[#F1EDE6] font-semibold transition-colors">
+                  Copas Nacionales
+                </button>
                 <button onClick={() => handleNavigate('tablas', 'promedios')} className="hover:text-[#F1EDE6] transition-colors">
                   Promedios
                 </button>
@@ -562,12 +572,6 @@ export default function App() {
                 </button>
                 <button onClick={() => handleNavigate('clubes')} className="hover:text-[#F1EDE6] transition-colors">
                   Clubes
-                </button>
-                <button onClick={() => handleNavigate('auditoria')} className="hover:text-[#F1EDE6] transition-colors font-bold text-[#DCA842]">
-                  Auditoría de Datos
-                </button>
-                <button onClick={() => setIsAiChatOpen(true)} className="hover:text-[#DCA842] transition-colors text-[#DCA842]">
-                  Consultar IA
                 </button>
                 <span className="text-[#8B949E]/50">·</span>
                 <span>Temporada Oficial 2026</span>
@@ -604,17 +608,6 @@ export default function App() {
           <GameTeaserModal
             isOpen={isGameTeaserOpen}
             onClose={() => setIsGameTeaserOpen(false)}
-          />
-        </Suspense>
-      )}
-
-      {/* AI Assistant Modal ("Preguntale a CÁBALA") - Loaded on demand */}
-      {isAiChatOpen && (
-        <Suspense fallback={null}>
-          <PreguntaleACabalaModal
-            isOpen={isAiChatOpen}
-            onClose={() => setIsAiChatOpen(false)}
-            onSelectClub={handleSelectClub}
           />
         </Suspense>
       )}

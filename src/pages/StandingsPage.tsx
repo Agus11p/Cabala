@@ -585,7 +585,7 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
           zoneA={zoneA}
           zoneB={zoneB}
           onSelectClub={onSelectClub}
-          tournamentPhase="clausura"
+          tournamentPhase="apertura"
         />
       ) : isZonePhase ? (
         /* VISTA OBLIGATORIA DE ZONAS: TABLA A Y TABLA B INDEPENDIENTES (JAMÁS MEZCLADAS) */

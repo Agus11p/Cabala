@@ -1,5 +1,6 @@
 import React from 'react';
 import { MatchStatus } from '../../types/football';
+import { formatMatchTime } from '../../utils/formatters';
 
 interface StatusIndicatorProps {
   status: MatchStatus;
@@ -36,7 +37,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
   return (
     <span className={`text-xs tracking-wider text-[#8B949E] font-medium font-num ${className}`}>
-      {time || 'Programado'}
+      {formatMatchTime(time)}
     </span>
   );
 };

@@ -123,7 +123,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             ) : (
               <div className="flex flex-col items-center justify-center">
                 <span className="font-num text-2xl sm:text-3xl font-bold text-[#F1EDE6] px-3 py-1 rounded-lg bg-[#181C22] border border-white/[0.08]">
-                  {formatMatchTime(match.time)}
+                  {formatMatchTime(match.time, match.date)}
                 </span>
                 <span className="text-[10px] text-[#8B949E] mt-1 font-medium tracking-wide">
                   {match.date}
@@ -202,7 +202,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               {homeScoreDisplay}
             </span>
           ) : (
-            <span className="text-xs text-[#8B949E] font-num">{formatMatchTime(match.time)}</span>
+            <span className="text-xs text-[#8B949E] font-num">{formatMatchTime(match.time, match.date)}</span>
           )}
         </div>
 

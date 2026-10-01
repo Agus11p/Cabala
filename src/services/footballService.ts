@@ -119,30 +119,23 @@ class FootballService {
     }
   }
 
-  // Matches con espnAdapter en tiempo real y fallback offline con CacheService
+  // Matches con persistencia de backend oficial + soporte en vivo y fallback offline con CacheService
   public async getMatches(filter?: MatchFilter): Promise<Match[]> {
     const isHistoricalSeasonScope = filter?.scope === 'all' || filter?.scope === 'season';
     const filterKey = JSON.stringify(filter || {});
     const cacheKey = `matches_${isHistoricalSeasonScope ? 'historical' : 'active'}_${filterKey}`;
 
-    // 1. Si no es archivo histórico, consultar primero espnAdapter para datos en vivo
-    if (!isHistoricalSeasonScope) {
+    // 1. Si el usuario filtra específicamente por partidos 'live' (en vivo)
+    if (filter?.status === 'live') {
       try {
         const liveMatches = await espnAdapter.fetchScoreboard({ date: filter?.date });
-        if (liveMatches && liveMatches.length > 0) {
-          let result = liveMatches;
-          if (filter?.status && filter.status !== 'all') {
-            result = result.filter((m) => m.status === filter.status);
-          }
-          if (filter?.teamId) {
-            result = result.filter((m) => m.homeTeamId === filter.teamId || m.awayTeamId === filter.teamId);
-          }
-          // Guardar en cacheService para soporte offline
-          cacheService.set(cacheKey, result, CACHE_TTL.REALTIME_MATCHES);
-          return result;
+        const filtered = (liveMatches || []).filter((m) => m.status === 'live');
+        if (filtered.length > 0) {
+          cacheService.set(cacheKey, filtered, CACHE_TTL.REALTIME_MATCHES);
+          return filtered;
         }
       } catch (adapterErr) {
-        console.warn('[FootballService] espnAdapter fallo o no disponible; consultando persistencia:', adapterErr);
+        console.warn('[FootballService] espnAdapter no disponible para partidos live:', adapterErr);
       }
     }
 
@@ -172,7 +165,7 @@ class FootballService {
         ttl
       );
 
-      return data;
+      return (data || []) as Match[];
     } catch (err: any) {
       // 3. Fallback total offline: devolver cualquier resultado previo en caché
       const stale = cacheService.getStale<Match[]>(cacheKey);
@@ -180,7 +173,7 @@ class FootballService {
         console.warn(`[FootballService] Operando offline: entregando partidos desde caché local (edad: ${Math.round(stale.ageMs / 1000)}s)`);
         return stale.data;
       }
-      throw err;
+      return [];
     }
   }
 

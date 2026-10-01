@@ -385,7 +385,7 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
             <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">
               <span className="text-[#8B949E] block mb-1">Fecha y Horario</span>
               <span className="text-sm font-bold text-[#F1EDE6]">
-                {match.date} · {formatMatchTime(match.time)} hs
+                {match.date} · {formatMatchTime(match.time, match.date)}
               </span>
             </div>
             <div className="p-4 rounded-xl bg-[#181C22] border border-[#22272E]">

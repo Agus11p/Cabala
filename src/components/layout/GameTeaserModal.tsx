@@ -1,43 +1,110 @@
 import React, { useState } from 'react';
-import { X, Trophy, Swords, Zap, CheckCircle2, AlertCircle, Shield, Lock } from 'lucide-react';
+import { X, Trophy, Swords, Zap, CheckCircle2, AlertCircle, Shield, Lock, ChevronRight, RotateCcw, Sparkles } from 'lucide-react';
 
 interface GameTeaserModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface TriviaQuestion {
+  id: number;
+  question: string;
+  options: { id: number; text: string; isCorrect?: boolean }[];
+  triviaContext: string;
+  points: number;
+}
+
+const TRIVIA_QUESTIONS: TriviaQuestion[] = [
+  {
+    id: 1,
+    question: '¿Quién es el máximo goleador histórico de la Primera División del fútbol argentino?',
+    options: [
+      { id: 0, text: 'Ángel Labruna' },
+      { id: 1, text: 'Arsenio Erico', isCorrect: true },
+      { id: 2, text: 'José Sanfilippo' },
+      { id: 3, text: 'Martín Palermo' },
+    ],
+    triviaContext: 'Arsenio Erico ostenta el récord histórico con 295 goles oficiales en Primera División (Independiente y Huracán), superando por 2 tantos a Ángel Labruna (293) y José Sanfilippo (227).',
+    points: 25,
+  },
+  {
+    id: 2,
+    question: '¿Qué club fue el primer campeón oficial de la era profesional en 1931?',
+    options: [
+      { id: 0, text: 'River Plate' },
+      { id: 1, text: 'Racing Club' },
+      { id: 2, text: 'San Lorenzo' },
+      { id: 3, text: 'Boca Juniors', isCorrect: true },
+    ],
+    triviaContext: 'Boca Juniors se consagró en el torneo inaugural del profesionalismo organizado por la Liga Argentina de Football en 1931, sumando 50 puntos a lo largo de las 34 fechas.',
+    points: 25,
+  },
+  {
+    id: 3,
+    question: '¿Qué club argentino fue el primero en consagrarse campeón de la Copa Libertadores de América en 1964?',
+    options: [
+      { id: 0, text: 'Racing Club' },
+      { id: 1, text: 'Independiente', isCorrect: true },
+      { id: 2, text: 'Boca Juniors' },
+      { id: 3, text: 'Estudiantes de La Plata' },
+    ],
+    triviaContext: 'Independiente se consagró campeón invicto de la Copa Libertadores en 1964 frente a Nacional de Montevideo, convirtiéndose en el primer club argentino en conquistar América.',
+    points: 25,
+  },
+];
+
 export const GameTeaserModal: React.FC<GameTeaserModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'1v1' | 'ranking' | 'divisiones' | 'temporada'>('1v1');
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
+  const [submittedQuestions, setSubmittedQuestions] = useState<Record<number, boolean>>({});
+  const [isFinished, setIsFinished] = useState(false);
 
   if (!isOpen) return null;
 
-  const sampleQuestion = {
-    question: '¿Quién es el máximo goleador histórico en la historia del fútbol profesional de Primera División de AFA?',
-    options: [
-      { id: 0, text: 'Ángel Labruna (293 goles)' },
-      { id: 1, text: 'Arsenio Erico (295 goles)', isCorrect: true },
-      { id: 2, text: 'Martín Palermo (227 goles)' },
-      { id: 3, text: 'José Sanfilippo (226 goles)' },
-    ],
-    triviaContext: 'Arsenio Erico brilló en Independiente durante las décadas de 1930 y 1940, consagrándose como el artillero más letal de la historia de los torneos argentinos.',
-  };
+  const currentQ = TRIVIA_QUESTIONS[currentQuestionIdx];
+  const selectedAnswer = selectedAnswers[currentQuestionIdx] ?? null;
+  const isSubmitted = Boolean(submittedQuestions[currentQuestionIdx]);
 
   const handleSelect = (idx: number) => {
-    if (submitted) return;
-    setSelectedAnswer(idx);
+    if (isSubmitted) return;
+    setSelectedAnswers((prev) => ({ ...prev, [currentQuestionIdx]: idx }));
   };
 
   const handleSubmit = () => {
     if (selectedAnswer === null) return;
-    setSubmitted(true);
+    setSubmittedQuestions((prev) => ({ ...prev, [currentQuestionIdx]: true }));
+  };
+
+  const handleNext = () => {
+    if (currentQuestionIdx < TRIVIA_QUESTIONS.length - 1) {
+      setCurrentQuestionIdx((prev) => prev + 1);
+    } else {
+      setIsFinished(true);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentQuestionIdx > 0) {
+      setCurrentQuestionIdx((prev) => prev - 1);
+    }
   };
 
   const handleReset = () => {
-    setSelectedAnswer(null);
-    setSubmitted(false);
+    setSelectedAnswers({});
+    setSubmittedQuestions({});
+    setCurrentQuestionIdx(0);
+    setIsFinished(false);
   };
+
+  // Calcular puntaje acumulado
+  const correctCount = TRIVIA_QUESTIONS.reduce((acc, q, qIdx) => {
+    const picked = selectedAnswers[qIdx];
+    const correctOpt = q.options.find((o) => o.isCorrect);
+    return picked !== undefined && correctOpt && picked === correctOpt.id ? acc + 1 : acc;
+  }, 0);
+
+  const totalEloEarned = correctCount * 25;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
@@ -114,9 +181,15 @@ export const GameTeaserModal: React.FC<GameTeaserModalProps> = ({ isOpen, onClos
         <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
           {activeTab === '1v1' && (
             <>
-              <p className="text-xs text-[#8B949E] leading-relaxed">
-                Desafiá en duelos de 5 preguntas sobre historia, clásicos y mística del fútbol argentino. Las partidas oficiales ponen en juego puntos ELO para el ranking general.
-              </p>
+              <div className="space-y-2">
+                <p className="text-xs text-[#8B949E] leading-relaxed">
+                  Desafiá en duelos de 3 preguntas sobre historia, títulos y mística del fútbol argentino. Las respuestas no contienen pistas ni números que delaten la solución: solo conocimiento genuino.
+                </p>
+                <div className="flex items-center gap-2 text-[11px] text-[#DCA842] bg-[#DCA842]/10 border border-[#DCA842]/20 px-3 py-1.5 rounded-lg">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#DCA842]" />
+                  <span>Duelo de 3 preguntas directas · Próximamente: preguntas de aproximación</span>
+                </div>
+              </div>
 
               {/* Pillars */}
               <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
@@ -137,85 +210,233 @@ export const GameTeaserModal: React.FC<GameTeaserModalProps> = ({ isOpen, onClos
                 </div>
               </div>
 
-              {/* Interactive Demo Question */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#0A0C0E] border border-white/[0.08] space-y-3.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842]">
-                    Pregunta de Demostración
-                  </span>
-                  <span className="font-num font-bold text-[#8B949E]">
-                    +25 ELO en juego
-                  </span>
-                </div>
+              {/* Interactive 3-Question 1v1 Duel Demo */}
+              {isFinished ? (
+                <div className="p-5 sm:p-6 rounded-2xl bg-[#0A0C0E] border border-[#DCA842]/40 space-y-4 animate-fadeIn text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-[#DCA842]/15 border border-[#DCA842]/30 flex items-center justify-center mx-auto text-[#DCA842]">
+                    <Trophy className="w-6 h-6" />
+                  </div>
 
-                <h4 className="text-sm font-editorial font-bold text-[#F1EDE6] leading-snug">
-                  {sampleQuestion.question}
-                </h4>
-
-                <div className="space-y-2">
-                  {sampleQuestion.options.map((opt) => {
-                    const isChosen = selectedAnswer === opt.id;
-                    let btnStyle = 'bg-[#181C22] text-[#F1EDE6] border-white/[0.08] hover:border-[#DCA842]/40';
-
-                    if (submitted) {
-                      if (opt.isCorrect) {
-                        btnStyle = 'bg-[#10B981]/20 text-[#10B981] border-[#10B981] font-semibold';
-                      } else if (isChosen && !opt.isCorrect) {
-                        btnStyle = 'bg-[#E63946]/20 text-[#E63946] border-[#E63946]';
-                      }
-                    } else if (isChosen) {
-                      btnStyle = 'bg-[#181C22] text-[#DCA842] border-[#DCA842] font-semibold';
-                    }
-
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => handleSelect(opt.id)}
-                        className={`w-full p-2.5 sm:p-3 rounded-xl border text-xs text-left transition-all flex items-center justify-between ${btnStyle}`}
-                      >
-                        <span>{opt.text}</span>
-                        {submitted && opt.isCorrect && (
-                          <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
-                        )}
-                        {submitted && isChosen && !opt.isCorrect && (
-                          <AlertCircle className="w-4 h-4 text-[#E63946] shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {submitted ? (
-                  <div className="pt-2 space-y-3 animate-fadeIn">
-                    <p className="text-xs text-[#8B949E] bg-[#121519] p-3 rounded-xl border border-white/[0.06] leading-relaxed">
-                      {sampleQuestion.triviaContext}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842]">
+                      Duelo 1v1 Completado
+                    </span>
+                    <h4 className="font-editorial font-black text-xl text-[#F1EDE6]">
+                      {correctCount === 3
+                        ? '¡Rendimiento Perfecto!'
+                        : correctCount >= 2
+                        ? '¡Gran Desempeño!'
+                        : 'Duelo Finalizado'}
+                    </h4>
+                    <p className="text-xs text-[#8B949E]">
+                      Acertaste {correctCount} de {TRIVIA_QUESTIONS.length} preguntas reglamentarias e históricas.
                     </p>
-                    <div className="flex items-center justify-between">
-                      <span className={`text-xs font-semibold ${selectedAnswer === 1 ? 'text-[#10B981]' : 'text-[#E63946]'}`}>
-                        {selectedAnswer === 1 ? '¡Respuesta correcta! +25 ELO' : 'Respuesta incorrecta'}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="p-3 rounded-xl bg-[#121519] border border-white/[0.08]">
+                      <span className="text-[10px] uppercase font-bold text-[#8B949E] block">Aciertos</span>
+                      <span className="font-num text-xl font-black text-[#10B981]">
+                        {correctCount} / {TRIVIA_QUESTIONS.length}
                       </span>
-                      <button
-                        onClick={handleReset}
-                        className="text-xs text-[#8B949E] hover:text-[#F1EDE6] underline"
-                      >
-                        Reintentar demo
-                      </button>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#121519] border border-white/[0.08]">
+                      <span className="text-[10px] uppercase font-bold text-[#8B949E] block">Rating ELO</span>
+                      <span className="font-num text-xl font-black text-[#DCA842]">
+                        +{totalEloEarned} ELO
+                      </span>
                     </div>
                   </div>
-                ) : (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={selectedAnswer === null}
-                    className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                      selectedAnswer !== null
-                        ? 'bg-[#DCA842] text-[#0A0C0E] hover:bg-[#c99532]'
-                        : 'bg-[#181C22] text-[#8B949E]/50 cursor-not-allowed border border-white/[0.04]'
-                    }`}
-                  >
-                    Confirmar respuesta
-                  </button>
-                )}
-              </div>
+
+                  {/* Review breakdown */}
+                  <div className="text-left space-y-2 pt-2 border-t border-white/[0.08]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B949E] block">
+                      Resumen de Respuestas:
+                    </span>
+                    {TRIVIA_QUESTIONS.map((q, idx) => {
+                      const userPick = selectedAnswers[idx];
+                      const correctOpt = q.options.find((o) => o.isCorrect);
+                      const isCorrect = userPick !== undefined && correctOpt && userPick === correctOpt.id;
+
+                      return (
+                        <div
+                          key={q.id}
+                          className="p-2.5 rounded-xl bg-[#121519] border border-white/[0.06] flex items-center justify-between text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            {isCorrect ? (
+                              <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-[#E63946] shrink-0" />
+                            )}
+                            <span className="text-[#F1EDE6] truncate font-medium">
+                              #{idx + 1}: {q.question}
+                            </span>
+                          </div>
+                          <span className={`font-semibold shrink-0 text-[11px] ${isCorrect ? 'text-[#10B981]' : 'text-[#E63946]'}`}>
+                            {correctOpt?.text}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      onClick={handleReset}
+                      className="w-full py-2.5 rounded-xl bg-[#DCA842] hover:bg-[#c99532] text-[#0A0C0E] font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Jugar otro duelo</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#0A0C0E] border border-white/[0.08] space-y-4">
+                  {/* Progress Header */}
+                  <div className="flex items-center justify-between text-xs pb-1 border-b border-white/[0.06]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842]">
+                        Pregunta {currentQuestionIdx + 1} de {TRIVIA_QUESTIONS.length}
+                      </span>
+                      <div className="flex items-center gap-1.5 ml-1">
+                        {TRIVIA_QUESTIONS.map((_, i) => {
+                          const answered = Boolean(submittedQuestions[i]);
+                          const isCur = i === currentQuestionIdx;
+                          return (
+                            <span
+                              key={i}
+                              className={`w-2 h-2 rounded-full transition-all ${
+                                isCur
+                                  ? 'bg-[#DCA842] ring-2 ring-[#DCA842]/30'
+                                  : answered
+                                  ? 'bg-[#10B981]'
+                                  : 'bg-white/20'
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <span className="font-num font-bold text-[#8B949E]">
+                      +{currentQ.points} ELO en juego
+                    </span>
+                  </div>
+
+                  {/* Question Title */}
+                  <h4 className="text-sm font-editorial font-bold text-[#F1EDE6] leading-snug">
+                    {currentQ.question}
+                  </h4>
+
+                  {/* Options without spoilers/clues */}
+                  <div className="space-y-2">
+                    {currentQ.options.map((opt) => {
+                      const isChosen = selectedAnswer === opt.id;
+                      let btnStyle = 'bg-[#181C22] text-[#F1EDE6] border-white/[0.08] hover:border-[#DCA842]/40';
+
+                      if (isSubmitted) {
+                        if (opt.isCorrect) {
+                          btnStyle = 'bg-[#10B981]/20 text-[#10B981] border-[#10B981] font-semibold';
+                        } else if (isChosen && !opt.isCorrect) {
+                          btnStyle = 'bg-[#E63946]/20 text-[#E63946] border-[#E63946]';
+                        }
+                      } else if (isChosen) {
+                        btnStyle = 'bg-[#181C22] text-[#DCA842] border-[#DCA842] font-semibold';
+                      }
+
+                      const letter = ['A', 'B', 'C', 'D'][opt.id] || '';
+
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleSelect(opt.id)}
+                          className={`w-full p-2.5 sm:p-3 rounded-xl border text-xs text-left transition-all flex items-center justify-between group ${btnStyle}`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-bold text-[#8B949E] group-hover:text-[#F1EDE6] shrink-0 font-num">
+                              {letter}
+                            </span>
+                            <span className="font-medium text-[#F1EDE6]">{opt.text}</span>
+                          </div>
+                          {isSubmitted && opt.isCorrect && (
+                            <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+                          )}
+                          {isSubmitted && isChosen && !opt.isCorrect && (
+                            <AlertCircle className="w-4 h-4 text-[#E63946] shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Confirmation and Feedback */}
+                  {isSubmitted ? (
+                    <div className="pt-2 space-y-3 animate-fadeIn">
+                      <p className="text-xs text-[#8B949E] bg-[#121519] p-3 rounded-xl border border-white/[0.06] leading-relaxed">
+                        {currentQ.triviaContext}
+                      </p>
+
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <div className="flex items-center gap-2">
+                          {selectedAnswer !== null && currentQ.options[selectedAnswer]?.isCorrect ? (
+                            <span className="text-xs font-bold text-[#10B981]">
+                              ¡Respuesta correcta! (+{currentQ.points} ELO)
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold text-[#E63946]">
+                              Respuesta incorrecta
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {currentQuestionIdx > 0 && (
+                            <button
+                              onClick={handlePrev}
+                              className="px-3 py-1.5 rounded-lg bg-[#181C22] hover:bg-[#22272E] text-xs font-semibold text-[#8B949E] transition-colors border border-white/[0.08]"
+                            >
+                              Anterior
+                            </button>
+                          )}
+                          <button
+                            onClick={handleNext}
+                            className="px-4 py-1.5 rounded-lg bg-[#DCA842] hover:bg-[#c99532] text-[#0A0C0E] text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                          >
+                            <span>
+                              {currentQuestionIdx < TRIVIA_QUESTIONS.length - 1
+                                ? 'Siguiente'
+                                : 'Ver resultado'}
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      {currentQuestionIdx > 0 && (
+                        <button
+                          onClick={handlePrev}
+                          className="px-3 py-2.5 rounded-xl bg-[#181C22] hover:bg-[#22272E] text-xs font-semibold text-[#8B949E] transition-colors border border-white/[0.08]"
+                        >
+                          Anterior
+                        </button>
+                      )}
+                      <button
+                        onClick={handleSubmit}
+                        disabled={selectedAnswer === null}
+                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                          selectedAnswer !== null
+                            ? 'bg-[#DCA842] text-[#0A0C0E] hover:bg-[#c99532]'
+                            : 'bg-[#181C22] text-[#8B949E]/50 cursor-not-allowed border border-white/[0.04]'
+                        }`}
+                      >
+                        Confirmar respuesta
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 

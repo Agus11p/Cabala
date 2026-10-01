@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile, Team } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
 import { GlobalSearch } from '../common/GlobalSearch';
-import { Zap, Bot, Search, X } from 'lucide-react';
+import { Zap, Search, X } from 'lucide-react';
 
 interface NavbarProps {
   currentView: string;
@@ -12,7 +12,6 @@ interface NavbarProps {
   onSelectClub?: (clubId: string) => void;
   onOpenProfile: () => void;
   onOpenGame: () => void;
-  onOpenAiChat: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -23,7 +22,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectClub,
   onOpenProfile,
   onOpenGame,
-  onOpenAiChat,
 }) => {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
@@ -31,8 +29,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'inicio', label: 'Inicio' },
     { id: 'partidos', label: 'Partidos' },
     { id: 'tablas', label: 'Tablas' },
+    { id: 'copas_nacionales', label: 'Copas Nacionales' },
     { id: 'clubes', label: 'Clubes' },
-    { id: 'auditoria', label: 'Auditoría' },
   ];
 
   const handleSelectClubFromSearch = (clubId: string) => {
@@ -111,14 +109,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Zap className="w-3.5 h-3.5 fill-[#0A0C0E]" />
             <span>Jugar</span>
-          </button>
-
-          <button
-            onClick={onOpenAiChat}
-            className="hidden md:flex items-center gap-1.5 text-xs font-semibold text-[#8B949E] hover:text-[#DCA842] transition-colors px-2.5 py-1.5"
-          >
-            <Bot className="w-3.5 h-3.5 text-[#DCA842]" />
-            <span>Consultar IA</span>
           </button>
 
           <button

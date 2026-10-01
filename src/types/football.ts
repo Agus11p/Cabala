@@ -105,6 +105,9 @@ export interface Match {
   tournament: string;
   round: string;
   stadium: string;
+  phase?: 'apertura' | 'clausura' | 'playoffs' | string;
+  zone?: 'A' | 'B' | string;
+  season?: number;
   referee?: string;
   featured?: boolean;
   events?: MatchEvent[];

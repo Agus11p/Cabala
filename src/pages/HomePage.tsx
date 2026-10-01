@@ -2,6 +2,7 @@ import React from 'react';
 import { Match, Team, StandingRow, NewsInsight, UserProfile, TableType } from '../types/football';
 import { MatchCard } from '../components/matches/MatchCard';
 import { TeamBadge } from '../components/common/TeamBadge';
+import { CopasOverviewSection } from '../components/copas/CopasOverviewSection';
 import { Zap, ChevronRight, Trophy, Flame, User, ArrowUpRight, ShieldCheck, Clock } from 'lucide-react';
 import { formatStatValue } from '../utils/formatters';
 
@@ -11,7 +12,7 @@ interface HomePageProps {
   upcomingMatches: Match[];
   topTeams: Team[];
   topStandings: StandingRow[];
-  news: NewsInsight[];
+  news?: NewsInsight[];
   userProfile: UserProfile | null;
   onSelectMatch: (matchId: string) => void;
   onSelectClub: (clubId: string) => void;
@@ -27,7 +28,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   upcomingMatches,
   topTeams,
   topStandings,
-  news,
+  news = [],
   userProfile,
   onSelectMatch,
   onSelectClub,
@@ -171,19 +172,19 @@ export const HomePage: React.FC<HomePageProps> = ({
           >
             <div>
               <div className="flex items-center justify-between text-xs text-[#8B949E] mb-2 font-semibold">
-                <span className="text-[#DCA842] uppercase text-[10px] tracking-wider font-bold">Fase Regular</span>
+                <span className="text-[#30A46C] uppercase text-[10px] tracking-wider font-bold">Concluido · Campeón Belgrano</span>
                 <ArrowUpRight className="w-4 h-4 text-[#8B949E] group-hover:text-[#DCA842] transition-colors" />
               </div>
               <h3 className="font-editorial font-bold text-base text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors">
                 Torneo Apertura
               </h3>
               <p className="text-xs text-[#8B949E] mt-1 line-clamp-2">
-                Zona A (15) y Zona B (15). Clasifican los 8 primeros de cada zona a Octavos de Final.
+                Campeón Oficial: Belgrano (Córdoba). Subcampeón: River Plate. Playoffs concluidos oficialmente.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-[#8B949E]">
-              <span>16 Fechas</span>
-              <span className="font-bold text-[#F1EDE6] group-hover:text-[#DCA842]">Ver zonas →</span>
+              <span>Torneo finalizado</span>
+              <span className="font-bold text-[#F1EDE6] group-hover:text-[#DCA842]">Ver cuadro y zonas →</span>
             </div>
           </div>
 
@@ -367,6 +368,49 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* ───────────────────────────────────────────────────────────
+          COPAS NACIONALES Y SUPERCOPAS
+          Cuadro de clasificados oficial según reglamento AFA / LPF
+         ─────────────────────────────────────────────────────────── */}
+      <CopasOverviewSection
+        topStandings={topStandings}
+        teams={topTeams}
+        onSelectClub={onSelectClub}
+        onNavigate={onNavigate}
+      />
+
+      {/* ───────────────────────────────────────────────────────────
+          DIRECTORIO DE 30 CLUBES DE PRIMERA DIVISIÓN
+         ─────────────────────────────────────────────────────────── */}
+      <section className="p-6 rounded-3xl bg-[#121519] border border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#DCA842]/10 border border-[#DCA842]/20 flex items-center justify-center shrink-0">
+            <Trophy className="w-6 h-6 text-[#DCA842]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[#DCA842]">
+                Instituciones Oficiales LPF 2026
+              </span>
+            </div>
+            <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
+              DIRECTORIO DE 30 CLUBES DE PRIMERA
+            </h3>
+            <p className="text-xs text-[#8B949E]">
+              Consultá historial de partidos, escudos oficiales en alta definición, estadios, sedes y estadísticas club por club.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onNavigate('clubes')}
+          className="px-5 py-2.5 rounded-xl bg-[#181C22] hover:bg-[#22272E] text-xs font-bold text-[#F1EDE6] hover:text-[#DCA842] transition-colors border border-white/[0.08] flex items-center gap-2 shrink-0 shadow-sm"
+        >
+          <span>Explorar los 30 clubes</span>
+          <ChevronRight className="w-4 h-4 text-[#DCA842]" />
+        </button>
+      </section>
+
+      {/* ───────────────────────────────────────────────────────────
           3. ¿QUÉ PUEDO HACER?
           CTA hacia la Experiencia Competitiva CÁBALA JUGAR
          ─────────────────────────────────────────────────────────── */}
@@ -478,49 +522,6 @@ export const HomePage: React.FC<HomePageProps> = ({
                 {userProfile.achievements.length} insignia desbloqueada
               </span>
             </div>
-          </div>
-        </section>
-      )}
-
-      {/* ───────────────────────────────────────────────────────────
-          Actualidad & Noticias Editoriales
-         ─────────────────────────────────────────────────────────── */}
-      {news.length > 0 && (
-        <section className="space-y-4 pt-4 border-t border-white/[0.08]">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842]">Crónicas y Actualidad</span>
-              <h3 className="font-editorial font-bold text-xl text-[#F1EDE6]">
-                Noticias de Primera
-              </h3>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {news.slice(0, 3).map((item) => (
-              <div
-                key={item.id}
-                className="p-5 rounded-2xl bg-[#121519] border border-white/[0.08] hover:border-[#DCA842]/40 hover:bg-[#15191F] transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between text-[11px] text-[#8B949E] mb-2.5 font-semibold">
-                    <span className="text-[#DCA842] uppercase text-[10px] tracking-wider font-bold">{item.tag}</span>
-                    <span>{item.readTime}</span>
-                  </div>
-                  <h4 className="font-editorial font-bold text-sm text-[#F1EDE6] mb-2 leading-snug line-clamp-2">
-                    {item.title}
-                  </h4>
-                  <p className="text-xs text-[#8B949E] leading-relaxed line-clamp-3">
-                    {item.summary}
-                  </p>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-[#8B949E]">
-                  <span className="font-medium text-[#F1EDE6]">{item.author}</span>
-                  <span>{item.date}</span>
-                </div>
-              </div>
-            ))}
           </div>
         </section>
       )}

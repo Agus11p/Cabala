@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
-import { Home, Flame, Trophy, Shield, Zap, Crown, Calendar, MessageSquare, Bot, ShieldCheck } from 'lucide-react';
+import { Home, Flame, Trophy, Shield, Zap, Award } from 'lucide-react';
 
 interface SidebarProps {
   currentView: string;
@@ -9,7 +9,6 @@ interface SidebarProps {
   user: UserProfile;
   onOpenProfile: () => void;
   onOpenGame: () => void;
-  onOpenAiChat: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -18,7 +17,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   user,
   onOpenProfile,
   onOpenGame,
-  onOpenAiChat,
 }) => {
   return (
     <aside className="hidden lg:flex flex-col justify-between w-64 shrink-0 h-screen sticky top-0 bg-[#0A0C0E] border-r border-white/[0.08] p-5">
@@ -80,6 +78,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
+            onClick={() => onNavigate('copas_nacionales')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              currentView === 'copas_nacionales'
+                ? 'bg-[#181C22] text-[#DCA842] font-bold border border-white/[0.08]'
+                : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#121519]'
+            }`}
+          >
+            <Award className="w-4 h-4" />
+            <span>Copas Nacionales</span>
+          </button>
+
+          <button
             onClick={() => onNavigate('clubes')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
               currentView === 'clubes'
@@ -89,18 +99,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Shield className="w-4 h-4" />
             <span>Clubes</span>
-          </button>
-
-          <button
-            onClick={() => onNavigate('auditoria')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
-              currentView === 'auditoria'
-                ? 'bg-[#181C22] text-[#DCA842] font-bold border border-white/[0.08]'
-                : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#121519]'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Auditoría de Datos</span>
           </button>
         </div>
 
@@ -117,62 +115,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <div className="flex items-center gap-3">
                 <Zap className="w-4 h-4 fill-[#0A0C0E]" />
-                <span>Jugar</span>
+                <span>Jugar Duelo</span>
               </div>
               <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-black/15">
                 1v1
-              </span>
-            </button>
-
-            <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-[#8B949E]/60 cursor-not-allowed">
-              <div className="flex items-center gap-3">
-                <Crown className="w-4 h-4" />
-                <span>Ranking</span>
-              </div>
-              <span className="text-[9px] uppercase tracking-wider text-[#8B949E]/70">
-                Próx.
-              </span>
-            </div>
-
-            <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-[#8B949E]/60 cursor-not-allowed">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4" />
-                <span>Temporada</span>
-              </div>
-              <span className="text-[9px] uppercase tracking-wider text-[#8B949E]/70">
-                Próx.
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: Comunidad & Asistente */}
-        <div className="border-t border-white/[0.08] pt-4">
-          <span className="text-[10px] uppercase font-bold tracking-wider text-[#8B949E] px-3 block mb-2">
-            Ecosistema
-          </span>
-
-          <div className="space-y-1">
-            <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-[#8B949E]/60 cursor-not-allowed">
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-4 h-4" />
-                <span>Comunidad</span>
-              </div>
-              <span className="text-[9px] uppercase tracking-wider text-[#8B949E]/70">
-                Próx.
-              </span>
-            </div>
-
-            <button
-              onClick={onOpenAiChat}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-[#F1EDE6] hover:text-[#DCA842] bg-[#121519] hover:bg-[#181C22] border border-white/[0.08] hover:border-[#DCA842]/40 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Bot className="w-4 h-4 text-[#DCA842]" />
-                <span>Consultar IA</span>
-              </div>
-              <span className="text-[9px] uppercase font-bold text-[#DCA842]">
-                AFA
               </span>
             </button>
           </div>

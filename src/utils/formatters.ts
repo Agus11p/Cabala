@@ -65,13 +65,53 @@ export function formatTextValue(val: string | null | undefined): string {
 }
 
 /**
- * Formatea horarios de partidos. Si no hay hora válida, retorna "SIN DATO".
+ * Formatea horarios de partidos al huso horario oficial de Argentina (UTC-3 / ART).
+ * Si no hay horario oficial confirmado, retorna "Sin definir".
  */
-export function formatMatchTime(timeStr: string | null | undefined): string {
-  if (!timeStr) return SIN_DATO_TEXT;
+export function formatMatchTime(timeStr?: string | null, dateStr?: string | null): string {
+  if (!timeStr) return 'Sin definir';
   const trimmed = timeStr.trim();
-  if (trimmed === '' || trimmed === '--:--' || trimmed === '--') {
-    return SIN_DATO_TEXT;
+  if (
+    trimmed === '' ||
+    trimmed === '--:--' ||
+    trimmed === '--' ||
+    trimmed === '00:00' ||
+    trimmed === '00:00:00' ||
+    trimmed.toLowerCase() === 'tbd' ||
+    trimmed.toLowerCase() === 'a confirmar' ||
+    trimmed.toLowerCase() === 'sin dato' ||
+    trimmed.toLowerCase() === 'sin_dato' ||
+    trimmed.toLowerCase() === 'sin definir'
+  ) {
+    return 'Sin definir';
   }
-  return trimmed;
+
+  // Si contiene fecha y hora en formato ISO completo con Z (UTC) o timezone
+  if (trimmed.includes('T') || (dateStr && (dateStr.includes('T') || trimmed.length > 5))) {
+    try {
+      const fullDateStr = trimmed.includes('T') ? trimmed : `${dateStr}T${trimmed}`;
+      const d = new Date(fullDateStr);
+      if (!isNaN(d.getTime())) {
+        const artTime = d.toLocaleTimeString('es-AR', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+        return `${artTime} hs`;
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  // Si viene en formato HH:mm estándar
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})/);
+  if (match) {
+    const hh = match[1].padStart(2, '0');
+    const mm = match[2];
+    return `${hh}:${mm} hs`;
+  }
+
+  return 'Sin definir';
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TableType, StandingRow, PromediosRow, ZoneStanding, UIState, DataInconsistencyRecord } from '../types/football';
 import { footballService } from '../services/footballService';
 import { StandingsTable } from '../components/standings/StandingsTable';
+import { PlayoffBracketView } from '../components/standings/PlayoffBracketView';
 import { TabNav } from '../components/common/TabNav';
 import { TableRowSkeleton } from '../components/common/SkeletonLoader';
 import { OFFICIAL_TOURNAMENTS_REGULATION } from '../types/regulations';
@@ -25,6 +26,8 @@ import {
   CheckCircle2,
   Columns,
   Square,
+  Trophy,
+  Globe,
 } from 'lucide-react';
 
 interface StandingsPageProps {
@@ -43,6 +46,7 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
   }, [initialTable]);
   const [activeZone, setActiveZone] = useState<'A' | 'B'>('A');
   const [desktopLayout, setDesktopLayout] = useState<'split' | 'single'>('split');
+  const [copasFilter, setCopasFilter] = useState<'all' | 'libertadores' | 'sudamericana'>('all');
   const [data, setData] = useState<(StandingRow | PromediosRow)[]>([]);
   const [zoneA, setZoneA] = useState<ZoneStanding[]>([]);
   const [zoneB, setZoneB] = useState<ZoneStanding[]>([]);
@@ -70,8 +74,9 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
     setError(null);
     setInconsistencies([]);
 
-    // If viewing copas or playoffs, we load the base standings to compute real deterministic projections
-    const queryType = activeTable === 'copas' || activeTable === 'playoffs' ? 'clausura' : activeTable;
+    // Copas require la Tabla General Anual de 30 clubes para asignar los 12 cupos Conmebol
+    // Playoffs consulta Clausura para disponer de Zona A y Zona B completas
+    const queryType = activeTable === 'copas' ? 'anual' : (activeTable === 'playoffs' ? 'clausura' : activeTable);
 
     footballService
       .getStandings(queryType)
@@ -370,179 +375,218 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
         </div>
       ) : activeTable === 'copas' ? (
         /* VISTA DEDICADA: CLASIFICACIÓN A COPAS CON MOTIVOS REGLAMENTARIOS */
-        <div className="space-y-8">
-          {/* Copa Libertadores */}
-          <section className="bg-[#121519] border border-[#22272E] rounded-3xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 pb-4 border-b border-[#22272E] mb-6">
-              <span className="w-3 h-3 rounded-full bg-[#30A46C]" />
-              <div>
-                <h3 className="font-editorial font-bold text-xl text-[#F1EDE6]">
-                  Copa CONMEBOL Libertadores 2027 (6 Cupos)
+        <div className="space-y-6">
+          {/* Header de Plazas Internacionales */}
+          <div className="bg-[#121519] border border-white/[0.08] rounded-3xl p-6 shadow-lg space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-[#DCA842]" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842]">
+                    CONMEBOL 2027 · 12 Plazas Oficiales
+                  </span>
+                </div>
+                <h3 className="font-editorial font-black text-2xl text-[#F1EDE6]">
+                  Clasificación a Copas Internacionales
                 </h3>
-                <span className="text-[11px] text-[#8B949E]">
-                  Campeones del año (Apertura, Clausura y Copa Argentina) + Mejores clasificados de la Tabla Anual.
-                </span>
+                <p className="text-xs text-[#8B949E]">
+                  Asignación estricta según Reglamento General AFA: 6 plazas a Copa Libertadores y 6 plazas a Copa Sudamericana.
+                </p>
+              </div>
+
+              {/* Filter tabs */}
+              <div className="flex items-center bg-[#181C22] p-1 rounded-xl border border-white/[0.08] text-xs font-semibold self-start md:self-auto">
+                <button
+                  onClick={() => setCopasFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
+                    copasFilter === 'all'
+                      ? 'bg-[#DCA842] text-[#0A0C0E] font-bold shadow-xs'
+                      : 'text-[#8B949E] hover:text-[#F1EDE6]'
+                  }`}
+                >
+                  Todas (12)
+                </button>
+                <button
+                  onClick={() => setCopasFilter('libertadores')}
+                  className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+                    copasFilter === 'libertadores'
+                      ? 'bg-[#30A46C] text-[#F1EDE6] font-bold shadow-xs'
+                      : 'text-[#8B949E] hover:text-[#F1EDE6]'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-[#30A46C]" />
+                  <span>Libertadores (6)</span>
+                </button>
+                <button
+                  onClick={() => setCopasFilter('sudamericana')}
+                  className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+                    copasFilter === 'sudamericana'
+                      ? 'bg-[#3B82F6] text-[#F1EDE6] font-bold shadow-xs'
+                      : 'text-[#8B949E] hover:text-[#F1EDE6]'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
+                  <span>Sudamericana (6)</span>
+                </button>
               </div>
             </div>
 
-            {libertadoresPlaces.length > 0 ? (
-              <div className="divide-y divide-[#22272E]">
-                {libertadoresPlaces.map((place) => (
-                  <div
-                    key={place.teamId}
-                    onClick={() => onSelectClub(place.teamId)}
-                    className="py-3 px-3 rounded-xl hover:bg-[#181C22] transition-colors flex items-center justify-between cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="font-num font-black text-sm text-[#30A46C] w-6 text-center">
-                        {place.placeNumber}°
+            {/* Content Lists */}
+            <div className="space-y-6">
+              {/* Copa Libertadores Section */}
+              {(copasFilter === 'all' || copasFilter === 'libertadores') && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-bold text-[#F1EDE6]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#30A46C]" />
+                      <span className="text-[#30A46C] uppercase tracking-wider text-[11px]">
+                        Copa CONMEBOL Libertadores 2027 (Argentina 1 a 6)
                       </span>
-                      <TeamBadge teamId={place.teamId} size="xs" />
-                      <div>
-                        <span className="font-bold text-sm text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors block">
-                          {place.teamName}
-                        </span>
-                        <span className="text-xs text-[#8B949E] block">
-                          {place.reason}
-                        </span>
-                      </div>
                     </div>
-
-                    <ChevronRight className="w-4 h-4 text-[#8B949E] group-hover:text-[#DCA842] transition-colors" />
+                    <span className="text-[11px] text-[#8B949E] font-normal">Fase de Grupos / Fases Previas</span>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-[#8B949E] py-4 text-center">
-                Calculando asignación de plazas con datos en vivo de la temporada.
-              </p>
-            )}
-          </section>
 
-          {/* Copa Sudamericana */}
-          <section className="bg-[#121519] border border-[#22272E] rounded-3xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 pb-4 border-b border-[#22272E] mb-6">
-              <span className="w-3 h-3 rounded-full bg-[#3B82F6]" />
-              <div>
-                <h3 className="font-editorial font-bold text-xl text-[#F1EDE6]">
-                  Copa CONMEBOL Sudamericana 2027 (6 Cupos)
-                </h3>
-                <span className="text-[11px] text-[#8B949E]">
-                  Siguientes 6 mejores ubicados de la Tabla General Anual que no hayan accedido a Libertadores.
-                </span>
-              </div>
+                  {libertadoresPlaces.length > 0 ? (
+                    <div className="divide-y divide-white/[0.06] bg-[#15191F] rounded-2xl border border-white/[0.08] overflow-hidden">
+                      {libertadoresPlaces.map((place) => {
+                        const annualRow = (data as StandingRow[]).find((r) => r.teamId === place.teamId);
+                        return (
+                          <div
+                            key={place.teamId}
+                            onClick={() => onSelectClub(place.teamId)}
+                            className="py-3 px-4 hover:bg-[#181C22] transition-colors flex items-center justify-between cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <span className="font-num font-black text-sm text-[#30A46C] w-7 text-center shrink-0">
+                                #{place.placeNumber}
+                              </span>
+                              <TeamBadge teamId={place.teamId} team={annualRow?.team} logoUrl={annualRow?.team?.logo} size="sm" />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors truncate">
+                                    {place.teamName}
+                                  </span>
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#30A46C]/15 text-[#30A46C]">
+                                    ARG {place.placeNumber}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-[#8B949E] truncate block mt-0.5">
+                                  {place.reason}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 shrink-0">
+                              {annualRow && (
+                                <div className="text-right hidden sm:block">
+                                  <span className="font-num font-black text-sm text-[#F1EDE6] block">
+                                    {annualRow.points} <span className="text-[10px] text-[#8B949E] font-normal">pts</span>
+                                  </span>
+                                  <span className="text-[10px] text-[#8B949E] font-num">
+                                    {annualRow.played} PJ · DG {annualRow.goalDiff > 0 ? `+${annualRow.goalDiff}` : annualRow.goalDiff}
+                                  </span>
+                                </div>
+                              )}
+                              <ChevronRight className="w-4 h-4 text-[#8B949E] group-hover:text-[#DCA842] transition-colors" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[#8B949E] py-4 text-center">
+                      Calculando asignación de plazas con datos en vivo de la temporada.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Copa Sudamericana Section */}
+              {(copasFilter === 'all' || copasFilter === 'sudamericana') && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-[#F1EDE6]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]" />
+                      <span className="text-[#3B82F6] uppercase tracking-wider text-[11px]">
+                        Copa CONMEBOL Sudamericana 2027 (Argentina 1 a 6)
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-[#8B949E] font-normal">Siguientes 6 mejores Tabla Anual</span>
+                  </div>
+
+                  {sudamericanaPlaces.length > 0 ? (
+                    <div className="divide-y divide-white/[0.06] bg-[#15191F] rounded-2xl border border-white/[0.08] overflow-hidden">
+                      {sudamericanaPlaces.map((place) => {
+                        const annualRow = (data as StandingRow[]).find((r) => r.teamId === place.teamId);
+                        return (
+                          <div
+                            key={place.teamId}
+                            onClick={() => onSelectClub(place.teamId)}
+                            className="py-3 px-4 hover:bg-[#181C22] transition-colors flex items-center justify-between cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <span className="font-num font-black text-sm text-[#3B82F6] w-7 text-center shrink-0">
+                                #{place.placeNumber}
+                              </span>
+                              <TeamBadge teamId={place.teamId} team={annualRow?.team} logoUrl={annualRow?.team?.logo} size="sm" />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors truncate">
+                                    {place.teamName}
+                                  </span>
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#3B82F6]/15 text-[#3B82F6]">
+                                    SUD {place.placeNumber}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-[#8B949E] truncate block mt-0.5">
+                                  {place.reason}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 shrink-0">
+                              {annualRow && (
+                                <div className="text-right hidden sm:block">
+                                  <span className="font-num font-black text-sm text-[#F1EDE6] block">
+                                    {annualRow.points} <span className="text-[10px] text-[#8B949E] font-normal">pts</span>
+                                  </span>
+                                  <span className="text-[10px] text-[#8B949E] font-num">
+                                    {annualRow.played} PJ · DG {annualRow.goalDiff > 0 ? `+${annualRow.goalDiff}` : annualRow.goalDiff}
+                                  </span>
+                                </div>
+                              )}
+                              <ChevronRight className="w-4 h-4 text-[#8B949E] group-hover:text-[#DCA842] transition-colors" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[#8B949E] py-4 text-center">
+                      Calculando asignación de plazas para Copa Sudamericana.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
-            {sudamericanaPlaces.length > 0 ? (
-              <div className="divide-y divide-[#22272E]">
-                {sudamericanaPlaces.map((place) => (
-                  <div
-                    key={place.teamId}
-                    onClick={() => onSelectClub(place.teamId)}
-                    className="py-3 px-3 rounded-xl hover:bg-[#181C22] transition-colors flex items-center justify-between cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="font-num font-black text-sm text-[#3B82F6] w-6 text-center">
-                        {place.placeNumber}°
-                      </span>
-                      <TeamBadge teamId={place.teamId} size="xs" />
-                      <div>
-                        <span className="font-bold text-sm text-[#F1EDE6] group-hover:text-[#DCA842] transition-colors block">
-                          {place.teamName}
-                        </span>
-                        <span className="text-xs text-[#8B949E] block">
-                          {place.reason}
-                        </span>
-                      </div>
-                    </div>
-
-                    <ChevronRight className="w-4 h-4 text-[#8B949E] group-hover:text-[#DCA842] transition-colors" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-[#8B949E] py-4 text-center">
-                Calculando asignación de plazas para Copa Sudamericana.
+            {/* Regulatory rules notice */}
+            <div className="p-4 rounded-xl bg-[#181C22] border border-white/[0.08] text-xs text-[#8B949E] space-y-1">
+              <span className="font-bold text-[#F1EDE6] block">Criterio Oficial de Reasignación de Plazas (AFA):</span>
+              <p>
+                Si un club se consagra campeón de múltiples certámenes (p. ej. Apertura y Clausura, o Copa Argentina) o ya hubiere obtenido su plaza a Copa Libertadores por su ubicación en la Tabla General Anual, el cupo no se pierde: se reasigna de manera directa al siguiente club mejor clasificado de la Tabla General Anual que no estuviere clasificado. Los clubes descendidos no pueden disputar copas internacionales salvo consagración en Copa Argentina con anuencia Conmebol.
               </p>
-            )}
-          </section>
+            </div>
+          </div>
         </div>
       ) : activeTable === 'playoffs' ? (
-        /* VISTA DEDICADA: CUADRO OFICIAL DE OCTAVOS DE FINAL */
-        <section className="bg-[#121519] border border-[#22272E] rounded-3xl p-6 shadow-lg space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-[#22272E]">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842]">
-                Instancia Final AFA 2026
-              </span>
-              <h3 className="font-editorial font-black text-2xl text-[#F1EDE6]">
-                Cuadro Oficial de Octavos de Final
-              </h3>
-              <p className="text-xs text-[#8B949E] mt-1">
-                Cruces reglamentarios interzonales: 1A vs 8B, 1B vs 8A, 2A vs 7B, 2B vs 7A, 3A vs 6B, 3B vs 6A, 4A vs 5B, 4B vs 5A. Localía para el mejor ubicado.
-              </p>
-            </div>
-            <Award className="w-6 h-6 text-[#DCA842]" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {playoffMatchups.map((matchup) => (
-              <div
-                key={matchup.id}
-                className="p-4 rounded-2xl bg-[#181C22] border border-[#22272E] hover:border-[#DCA842]/40 transition-all space-y-3"
-              >
-                <div className="flex items-center justify-between text-[11px] text-[#8B949E] pb-2 border-b border-[#22272E]/60">
-                  <span className="font-bold text-[#DCA842]">Llave #{matchup.matchNumber}</span>
-                  <span>Partido único con penales en caso de empate</span>
-                </div>
-
-                <div className="space-y-2">
-                  {/* Home Team (Better seeded) */}
-                  <div
-                    onClick={() => onSelectClub(matchup.homeTeam.teamId)}
-                    className="flex items-center justify-between p-2 rounded-xl bg-[#121519] cursor-pointer hover:bg-[#1C2128] transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-num text-xs font-bold text-[#DCA842] w-5 text-center">
-                        {matchup.homeTeam.position}°
-                      </span>
-                      <TeamBadge teamId={matchup.homeTeam.teamId} size="xs" />
-                      <span className="font-bold text-xs text-[#F1EDE6]">
-                        {matchup.homeTeam.team?.name || matchup.homeTeam.teamId}
-                      </span>
-                    </div>
-                    <span className="text-[10px] uppercase font-bold text-[#30A46C] px-2 py-0.5 rounded bg-[#30A46C]/10">
-                      Local
-                    </span>
-                  </div>
-
-                  {/* Away Team */}
-                  <div
-                    onClick={() => onSelectClub(matchup.awayTeam.teamId)}
-                    className="flex items-center justify-between p-2 rounded-xl bg-[#121519] cursor-pointer hover:bg-[#1C2128] transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-num text-xs font-bold text-[#8B949E] w-5 text-center">
-                        {matchup.awayTeam.position}°
-                      </span>
-                      <TeamBadge teamId={matchup.awayTeam.teamId} size="xs" />
-                      <span className="font-semibold text-xs text-[#F1EDE6]">
-                        {matchup.awayTeam.team?.name || matchup.awayTeam.teamId}
-                      </span>
-                    </div>
-                    <span className="text-[10px] uppercase font-semibold text-[#8B949E] px-2 py-0.5 rounded bg-[#22272E]">
-                      Visita
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-[#8B949E] pt-1">
-                  <span>{matchup.venueNote}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        /* VISTA DEDICADA: CUADRO OFICIAL DE PLAYOFFS COMPLETO (OCTAVOS, CUARTOS, SEMIS, FINAL) */
+        <PlayoffBracketView
+          zoneA={zoneA}
+          zoneB={zoneB}
+          onSelectClub={onSelectClub}
+          tournamentPhase="clausura"
+        />
       ) : isZonePhase ? (
         /* VISTA OBLIGATORIA DE ZONAS: TABLA A Y TABLA B INDEPENDIENTES (JAMÁS MEZCLADAS) */
         <div>

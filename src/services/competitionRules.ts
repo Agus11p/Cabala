@@ -570,6 +570,13 @@ export function getAnnualTable(
     if (!existing) {
       teamMap.set(row.teamId, {
         ...row,
+        team: row.team || {
+          id: row.teamId,
+          name: `Club ${row.teamId}`,
+          shortName: `Club ${row.teamId}`,
+          code: row.teamId.slice(0, 3).toUpperCase(),
+          logo: `https://a.espncdn.com/i/teamlogos/soccer/500/${row.teamId}.png`,
+        } as any,
         played: row.played,
         won: row.won,
         drawn: row.drawn,
@@ -581,6 +588,9 @@ export function getAnnualTable(
         fairPlayPoints: row.fairPlayPoints ?? 0,
       });
     } else {
+      if (!existing.team?.logo && row.team?.logo) {
+        existing.team = { ...(existing.team || {}), ...row.team };
+      }
       existing.played += row.played;
       existing.won += row.won;
       existing.drawn += row.drawn;

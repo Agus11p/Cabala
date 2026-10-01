@@ -91,7 +91,7 @@ function normalizeEspnTeam(teamData: any, zone?: 'A' | 'B') {
   const name = teamData.displayName || teamData.name || 'Club';
   const shortName = teamData.shortDisplayName || teamData.name || name;
   const abbreviation = teamData.abbreviation || shortName.slice(0, 3).toUpperCase();
-  const logo = teamData.logos?.[0]?.href || teamData.logo || '';
+  const logo = teamData.logos?.[0]?.href || teamData.logo || (id ? `https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png` : '');
   const primaryColor = teamData.color ? `#${teamData.color}` : '#DCA842';
   const secondaryColor = teamData.alternateColor ? `#${teamData.alternateColor}` : '#181C22';
 
@@ -466,14 +466,20 @@ app.get('/api/football/matches', async (req: Request, res: Response) => {
     }
 
     // 3. Normalizar al formato de respuesta Match para el frontend
-    const matches = persisted.map((m: any) => ({
-      id: m.id,
-      homeTeamId: m.homeTeamId,
-      awayTeamId: m.awayTeamId,
-      homeTeam: m.homeTeam || normalizeEspnTeam({ id: m.homeTeamId, displayName: 'Local' }),
-      awayTeam: m.awayTeam || normalizeEspnTeam({ id: m.awayTeamId, displayName: 'Visitante' }),
-      homeScore: m.homeScore,
-      awayScore: m.awayScore,
+    const matches = persisted.map((m: any) => {
+      const homeNorm = m.homeTeam || normalizeEspnTeam({ id: m.homeTeamId, displayName: 'Local' });
+      const awayNorm = m.awayTeam || normalizeEspnTeam({ id: m.awayTeamId, displayName: 'Visitante' });
+      const homeLogo = homeNorm.logo || `https://a.espncdn.com/i/teamlogos/soccer/500/${m.homeTeamId}.png`;
+      const awayLogo = awayNorm.logo || `https://a.espncdn.com/i/teamlogos/soccer/500/${m.awayTeamId}.png`;
+
+      return {
+        id: m.id,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        homeTeam: { ...homeNorm, logo: homeLogo },
+        awayTeam: { ...awayNorm, logo: awayLogo },
+        homeScore: m.homeScore,
+        awayScore: m.awayScore,
       status: m.status,
       minute: m.minute || undefined,
       date: m.date,
@@ -495,7 +501,8 @@ app.get('/api/football/matches', async (req: Request, res: Response) => {
       isStale: Boolean(m.isStale),
       ingestionRunId: m.ingestionRunId || 'run_espn',
       provenance: m.provenance,
-    }));
+    };
+  });
 
     res.json(matches);
   } catch (error: any) {
@@ -776,6 +783,8 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
 
     // 1. Obtener partidos oficiales de la base de datos para computar Apertura, Clausura y Anual con rigor matemático
     const allSeasonMatches = await dbProvider.getMatches();
+    const allTeamsCatalog = await dbProvider.getTeams();
+    const teamsCatalogMap = new Map(allTeamsCatalog.map((t: any) => [t.id, t]));
 
     const computePhaseStandingsFromMatches = (targetPhase: 'apertura' | 'clausura') => {
       const phaseName = targetPhase === 'apertura' ? 'Apertura' : 'Clausura';
@@ -792,10 +801,24 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
       const buildZone = (zoneIds: Set<string>, zoneLetter: 'A' | 'B'): ZoneStanding[] => {
         const statsMap = new Map<string, any>();
         zoneIds.forEach((id) => {
+          const tCatalog = teamsCatalogMap.get(id);
+          const defaultLogo = `https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png`;
+          const teamObj = tCatalog
+            ? { ...tCatalog, logo: tCatalog.logo || defaultLogo }
+            : {
+                id,
+                name: `Club ${id}`,
+                shortName: `Club ${id}`,
+                code: id.slice(0, 3).toUpperCase(),
+                logo: defaultLogo,
+                primaryColor: '#181C22',
+                secondaryColor: '#DCA842',
+              };
+
           statsMap.set(id, {
             position: 0,
             teamId: id,
-            team: undefined,
+            team: teamObj,
             played: 0,
             won: 0,
             drawn: 0,

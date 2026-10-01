@@ -15,6 +15,7 @@ interface HomePageProps {
   userProfile: UserProfile | null;
   onSelectMatch: (matchId: string) => void;
   onSelectClub: (clubId: string) => void;
+  onFavoriteClubChange?: (clubId: string) => void;
   onNavigate: (view: string, initialTable?: TableType) => void;
   onOpenGame: () => void;
   onOpenProfile: () => void;
@@ -30,6 +31,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   userProfile,
   onSelectMatch,
   onSelectClub,
+  onFavoriteClubChange,
   onNavigate,
   onOpenGame,
   onOpenProfile,
@@ -42,6 +44,12 @@ export const HomePage: React.FC<HomePageProps> = ({
     ? topTeams.find((t) => t.id === userProfile.favoriteClubId) || null
     : null;
 
+  const isFavoriteClubMatch = Boolean(
+    favoriteClub &&
+    featuredMatch &&
+    (featuredMatch.homeTeamId === favoriteClub.id || featuredMatch.awayTeamId === favoriteClub.id)
+  );
+
   const winRate = userProfile && userProfile.wins + userProfile.losses > 0
     ? Math.round((userProfile.wins / (userProfile.wins + userProfile.losses)) * 100)
     : 0;
@@ -53,6 +61,53 @@ export const HomePage: React.FC<HomePageProps> = ({
           Header Editorial + Partido Destacado de la Jornada
          ─────────────────────────────────────────────────────────── */}
       <section className="space-y-4">
+        {/* Selector y Foco del Club Preferido (MVP) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-[#181C22] via-[#15191F] to-[#121519] border border-white/[0.08]">
+          <div className="flex items-center gap-3">
+            {favoriteClub ? (
+              <>
+                <TeamBadge teamId={favoriteClub.id} team={favoriteClub} size="sm" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#DCA842]">
+                      {isFavoriteClubMatch
+                        ? (featuredMatch?.status === 'live' ? 'EN VIVO AHORA · PARTIDO PRINCIPAL' : 'PRÓXIMO PARTIDO DE TU CLUB')
+                        : 'TU CLUB EN SEGUIMIENTO'}
+                    </span>
+                  </div>
+                  <h3 className="font-editorial font-bold text-sm text-[#F1EDE6]">
+                    {favoriteClub.name}
+                  </h3>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <Trophy className="w-5 h-5 text-[#DCA842]" />
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842]">Personalizá tu Inicio</span>
+                  <p className="text-xs text-[#8B949E]">Elegí tu club para ver su próximo partido como principal</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <label className="text-[11px] font-semibold text-[#8B949E]">Club favorito:</label>
+            <select
+              value={userProfile?.favoriteClubId || ''}
+              onChange={(e) => onFavoriteClubChange?.(e.target.value)}
+              className="bg-[#121519] border border-white/[0.12] hover:border-[#DCA842] text-xs font-semibold text-[#F1EDE6] py-1.5 px-3 rounded-xl focus:outline-hidden transition-colors cursor-pointer"
+            >
+              <option value="" disabled>Seleccionar club...</option>
+              {topTeams.map((t) => (
+                <option key={t.id} value={t.id} className="bg-[#121519] text-[#F1EDE6]">
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Editorial Subheader */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-white/[0.08] pb-4">
           <div>
@@ -82,7 +137,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         </div>
 
-        {/* Hero: Featured Match Card */}
+        {/* Hero: Featured Match Card (Principal Match) */}
         {featuredMatch && (
           <div>
             <MatchCard match={featuredMatch} onClick={onSelectMatch} featured />

@@ -320,9 +320,30 @@ export default function App() {
   const fallbackMatch = selectedMatchId ? matches.find((m) => m.id === selectedMatchId) || null : null;
   const activeMatch = detailedMatch || fallbackMatch;
   const activeClub = selectedClubId ? teams.find((t) => t.id === selectedClubId) : null;
-  const featuredMatch = matches.find((m) => m.status === 'live') || matches[0] || null;
+
+  // Prioridad reglamentaria y de MVP:
+  // Si el usuario eligió un club (ej. Boca Juniors), su próximo partido (o partido en vivo)
+  // debe aparecer como PRINCIPAL en el inicio, y los demás encuentros abajo en chicos.
+  const userFavId = userProfile?.favoriteClubId;
+  const clubMatches = userFavId
+    ? matches.filter((m) => m.homeTeamId === userFavId || m.awayTeamId === userFavId)
+    : [];
+
+  const clubLive = clubMatches.find((m) => m.status === 'live');
+  const clubUpcoming = clubMatches.find((m) => m.status === 'scheduled');
+  const clubRecent = clubMatches[0];
+  const favoriteClubFeatured = clubLive || clubUpcoming || clubRecent || null;
+
+  const featuredMatch =
+    favoriteClubFeatured ||
+    matches.find((m) => m.status === 'live') ||
+    matches.find((m) => m.status === 'scheduled') ||
+    matches[0] ||
+    null;
+
   const liveMatches = matches.filter((m) => m.status === 'live');
-  const upcomingMatches = matches.filter((m) => m.status === 'scheduled');
+  // Partidos secundarios para la agenda compacta (excluyendo el principal destacado)
+  const upcomingMatches = matches.filter((m) => m.id !== featuredMatch?.id);
 
   const pageLoadingFallback = (
     <div className="space-y-6 animate-pulse">
@@ -456,6 +477,7 @@ export default function App() {
                       userProfile={userProfile}
                       onSelectMatch={handleSelectMatch}
                       onSelectClub={handleSelectClub}
+                      onFavoriteClubChange={handleFavoriteClubChange}
                       onNavigate={handleNavigate}
                       onOpenGame={() => setIsGameTeaserOpen(true)}
                       onOpenProfile={() => setIsProfileOpen(true)}

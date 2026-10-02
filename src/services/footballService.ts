@@ -11,9 +11,13 @@ import {
   TableType,
   UserProfile,
   NewsInsight,
+  CopaArgentinaFixture,
+  CopaArgentinaBracket,
+  CopaArgentinaSummary,
 } from '../types/football';
 import { espnAdapter } from './espnAdapter';
 import { cacheService, CACHE_TTL } from './cacheService';
+import { COPA_ARGENTINA_SEED } from '../data/copaArgentinaSeed';
 
 export interface MatchFilter {
   status?: MatchStatus | 'all' | 'today';
@@ -167,13 +171,237 @@ class FootballService {
 
       return (data || []) as Match[];
     } catch (err: any) {
-      // 3. Fallback total offline: devolver cualquier resultado previo en caché
+      // 3. Fallback a Firestore directo (ideal para despliegues estáticos en Vercel)
+      try {
+        const { collection, getDocs } = await import('firebase/firestore');
+        const { db } = await import('./firebaseClient');
+        const snap = await getDocs(collection(db, 'matches'));
+        if (!snap.empty) {
+          const firestoreMatches: Match[] = [];
+          snap.forEach((docSnap) => {
+            const m = docSnap.data() as any;
+            firestoreMatches.push({
+              ...m,
+              id: docSnap.id || m.id,
+              isStale: true,
+            });
+          });
+          if (firestoreMatches.length > 0) {
+            cacheService.set(cacheKey, firestoreMatches, CACHE_TTL.REGULAR_MATCHES);
+            return firestoreMatches;
+          }
+        }
+      } catch (firestoreErr) {
+        console.warn('[FootballService] Fallback a Firestore directo no disponible:', firestoreErr);
+      }
+
+      // 4. Fallback total offline: devolver cualquier resultado previo en caché
       const stale = cacheService.getStale<Match[]>(cacheKey);
       if (stale && stale.data) {
         console.warn(`[FootballService] Operando offline: entregando partidos desde caché local (edad: ${Math.round(stale.ageMs / 1000)}s)`);
         return stale.data;
       }
       return [];
+    }
+  }
+
+  /**
+   * Obtiene el fixture y resultados oficiales de Copa Argentina 2026.
+   * Con soporte offline, fallback automático ante Vercel y normalización en huso de Argentina.
+   */
+  public async getCopaArgentinaMatches(filter?: {
+    round?: string;
+    status?: string;
+    teamId?: string;
+    scope?: string;
+  }): Promise<Match[]> {
+    const params = new URLSearchParams();
+    if (filter?.round) params.append('round', filter.round);
+    if (filter?.status) params.append('status', filter.status);
+    if (filter?.teamId) params.append('teamId', filter.teamId);
+    if (filter?.scope) params.append('scope', filter.scope);
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const cacheKey = `copa_argentina_matches_${query}`;
+
+    try {
+      const { data } = await cacheService.getOrFetch(
+        cacheKey,
+        async () => {
+          const res = await fetch(`/api/football/copa-argentina/matches${query}`);
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status} al consultar Copa Argentina`);
+          }
+          return await res.json();
+        },
+        CACHE_TTL.REGULAR_MATCHES
+      );
+      return (data || []) as Match[];
+    } catch {
+      // Fallback 1: Memoria local seed garantizada (inmune a caídas de ESPN o Vercel)
+      let fallback = [...COPA_ARGENTINA_SEED];
+      if (filter?.round) {
+        fallback = fallback.filter((m) => (m.round || '').toLowerCase().includes(filter.round!.toLowerCase()));
+      }
+      if (filter?.status && filter.status !== 'all') {
+        fallback = fallback.filter((m) => m.status === filter.status);
+      }
+      if (filter?.teamId) {
+        fallback = fallback.filter((m) => m.homeTeamId === filter.teamId || m.awayTeamId === filter.teamId);
+      }
+      if (filter?.scope === 'finished') {
+        fallback = fallback.filter((m) => m.status === 'finished');
+      } else if (filter?.scope === 'upcoming') {
+        fallback = fallback.filter((m) => m.status === 'scheduled');
+      }
+      return fallback;
+    }
+  }
+
+  /**
+   * Obtiene el Fixture estructurado de Copa Argentina 2026 clasificado por rondas.
+   */
+  public async getCopaArgentinaFixture(): Promise<CopaArgentinaFixture> {
+    const cacheKey = 'copa_argentina_fixture';
+    try {
+      const { data } = await cacheService.getOrFetch(
+        cacheKey,
+        async () => {
+          const res = await fetch('/api/football/copa-argentina/fixture');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        },
+        CACHE_TTL.REGULAR_MATCHES
+      );
+      return data as CopaArgentinaFixture;
+    } catch {
+      const matches = COPA_ARGENTINA_SEED;
+      return {
+        tournament: 'Copa Argentina 2026',
+        season: 2026,
+        currentStage: 'Semifinales',
+        totalMatches: matches.length,
+        completedMatches: matches.filter((m) => m.status === 'finished').length,
+        scheduledMatches: matches.filter((m) => m.status === 'scheduled').length,
+        rounds: {
+          '32vos': matches.filter((m) => (m.round || '').toLowerCase().includes('32vos')),
+          '16vos': matches.filter((m) => (m.round || '').toLowerCase().includes('16vos')),
+          octavos: matches.filter((m) => (m.round || '').toLowerCase().includes('octavos')),
+          cuartos: matches.filter((m) => (m.round || '').toLowerCase().includes('cuartos')),
+          semifinales: matches.filter((m) => (m.round || '').toLowerCase().includes('semi')),
+          final: matches.filter((m) => {
+            const r = (m.round || '').toLowerCase();
+            return r.includes('final') && !r.includes('vos') && !r.includes('cuartos') && !r.includes('semi');
+          }),
+        },
+      };
+    }
+  }
+
+  /**
+   * Obtiene exclusivamente los resultados concluidos con marcadores oficiales y penales.
+   */
+  public async getCopaArgentinaResults(): Promise<Match[]> {
+    const cacheKey = 'copa_argentina_results';
+    try {
+      const { data } = await cacheService.getOrFetch(
+        cacheKey,
+        async () => {
+          const res = await fetch('/api/football/copa-argentina/results');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        },
+        CACHE_TTL.REGULAR_MATCHES
+      );
+      return data as Match[];
+    } catch {
+      return COPA_ARGENTINA_SEED.filter((m) => m.status === 'finished').sort(
+        (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+      );
+    }
+  }
+
+  /**
+   * Obtiene la estructura visual del cuadro (Bracket) de eliminación directa.
+   */
+  public async getCopaArgentinaBracket(): Promise<CopaArgentinaBracket> {
+    const cacheKey = 'copa_argentina_bracket';
+    try {
+      const { data } = await cacheService.getOrFetch(
+        cacheKey,
+        async () => {
+          const res = await fetch('/api/football/copa-argentina/bracket');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        },
+        CACHE_TTL.REGULAR_MATCHES
+      );
+      return data as CopaArgentinaBracket;
+    } catch {
+      const matches = COPA_ARGENTINA_SEED;
+      return {
+        tournament: 'Copa Argentina 2026',
+        champion: 'Por definir',
+        rounds: [
+          { id: '32vos', name: '32vos de Final', matches: matches.filter((m) => (m.round || '').toLowerCase().includes('32vos')) },
+          { id: '16vos', name: '16vos de Final', matches: matches.filter((m) => (m.round || '').toLowerCase().includes('16vos')) },
+          { id: 'octavos', name: 'Octavos de Final', matches: matches.filter((m) => (m.round || '').toLowerCase().includes('octavos')) },
+          { id: 'cuartos', name: 'Cuartos de Final', matches: matches.filter((m) => (m.round || '').toLowerCase().includes('cuartos')) },
+          { id: 'semifinales', name: 'Semifinales', matches: matches.filter((m) => (m.round || '').toLowerCase().includes('semi')) },
+          {
+            id: 'final',
+            name: 'Gran Final',
+            matches: matches.filter((m) => {
+              const r = (m.round || '').toLowerCase();
+              return r.includes('final') && !r.includes('vos') && !r.includes('cuartos') && !r.includes('semi');
+            }),
+          },
+        ],
+      };
+    }
+  }
+
+  /**
+   * Obtiene métricas oficiales y resumen ejecutivo de Copa Argentina.
+   */
+  public async getCopaArgentinaSummary(): Promise<CopaArgentinaSummary> {
+    const cacheKey = 'copa_argentina_summary';
+    try {
+      const { data } = await cacheService.getOrFetch(
+        cacheKey,
+        async () => {
+          const res = await fetch('/api/football/copa-argentina/summary');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        },
+        CACHE_TTL.REGULAR_MATCHES
+      );
+      return data as CopaArgentinaSummary;
+    } catch {
+      const matches = COPA_ARGENTINA_SEED;
+      const completed = matches.filter((m) => m.status === 'finished');
+      const scheduled = matches.filter((m) => m.status === 'scheduled');
+      let totalGoals = 0;
+      completed.forEach((m) => {
+        totalGoals += (m.homeScore || 0) + (m.awayScore || 0);
+      });
+      return {
+        tournament: 'Copa Argentina 2026',
+        totalMatches: matches.length,
+        completedMatches: completed.length,
+        scheduledMatches: scheduled.length,
+        completionPercentage: parseFloat(((completed.length / matches.length) * 100).toFixed(1)),
+        totalGoals,
+        avgGoals: completed.length > 0 ? parseFloat((totalGoals / completed.length).toFixed(2)) : 0,
+        currentStage: 'Semifinales',
+        semifinalists: [
+          { id: '9785', name: 'Atlético Tucumán' },
+          { id: '7764', name: 'Platense' },
+          { id: '235', name: 'Banfield' },
+          { id: '5', name: 'Boca Juniors' },
+        ],
+        champion: 'Por definir',
+      };
     }
   }
 

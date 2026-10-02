@@ -89,12 +89,20 @@ export interface Club {
 // Team is an alias for Club for full backwards compatibility
 export type Team = Club;
 
+export type MatchTeam = Partial<Club> & {
+  id: string;
+  name: string;
+  shortName?: string;
+  code?: string;
+  logo?: string | null;
+};
+
 export interface Match {
   id: string;
   homeTeamId: string;
   awayTeamId: string;
-  homeTeam?: Club;
-  awayTeam?: Club;
+  homeTeam?: MatchTeam;
+  awayTeam?: MatchTeam;
   homeScore: number | null;
   awayScore: number | null;
   status: MatchStatus;
@@ -105,6 +113,17 @@ export interface Match {
   tournament: string;
   round: string;
   stadium: string;
+  kickoffTime?: string;
+  notes?: string;
+  venue?: {
+    name?: string;
+    city?: string;
+  };
+  source?: string;
+  sourceId?: string;
+  provenance?: any;
+  isStale?: boolean;
+  verificationStatus?: string;
   phase?: 'apertura' | 'clausura' | 'playoffs' | string;
   zone?: 'A' | 'B' | string;
   season?: number;
@@ -309,3 +328,46 @@ export interface HeadToHeadMatch {
   homeScore: number;
   awayScore: number;
 }
+
+export interface CopaArgentinaFixture {
+  tournament: string;
+  season: number;
+  currentStage: string;
+  totalMatches: number;
+  completedMatches: number;
+  scheduledMatches: number;
+  rounds: {
+    '32vos': Match[];
+    '16vos': Match[];
+    octavos: Match[];
+    cuartos: Match[];
+    semifinales: Match[];
+    final: Match[];
+  };
+}
+
+export interface CopaArgentinaBracketStage {
+  id: string;
+  name: string;
+  matches: Match[];
+}
+
+export interface CopaArgentinaBracket {
+  tournament: string;
+  champion: string;
+  rounds: CopaArgentinaBracketStage[];
+}
+
+export interface CopaArgentinaSummary {
+  tournament: string;
+  totalMatches: number;
+  completedMatches: number;
+  scheduledMatches: number;
+  completionPercentage: number;
+  totalGoals: number;
+  avgGoals: number;
+  currentStage: string;
+  semifinalists: Array<{ id: string; name: string }>;
+  champion: string;
+}
+

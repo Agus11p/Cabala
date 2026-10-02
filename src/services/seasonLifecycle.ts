@@ -114,11 +114,11 @@ export class SeasonLifecycleEngine {
       const finalMatch = aperturaPlayoffs.find((m) => m.round === 'apertura---final');
       if (finalMatch && finalMatch.status === 'finished' && finalMatch.homeScore !== null && finalMatch.awayScore !== null) {
         if (finalMatch.homeScore > finalMatch.awayScore) {
-          aperturaChampion = finalMatch.homeTeam || teams.find((t) => t.id === finalMatch.homeTeamId) || null;
-          aperturaRunnerUp = finalMatch.awayTeam || teams.find((t) => t.id === finalMatch.awayTeamId) || null;
+          aperturaChampion = teams.find((t) => t.id === finalMatch.homeTeamId) || (finalMatch.homeTeam as unknown as Team) || null;
+          aperturaRunnerUp = teams.find((t) => t.id === finalMatch.awayTeamId) || (finalMatch.awayTeam as unknown as Team) || null;
         } else if (finalMatch.awayScore > finalMatch.homeScore) {
-          aperturaChampion = finalMatch.awayTeam || teams.find((t) => t.id === finalMatch.awayTeamId) || null;
-          aperturaRunnerUp = finalMatch.homeTeam || teams.find((t) => t.id === finalMatch.homeTeamId) || null;
+          aperturaChampion = teams.find((t) => t.id === finalMatch.awayTeamId) || (finalMatch.awayTeam as unknown as Team) || null;
+          aperturaRunnerUp = teams.find((t) => t.id === finalMatch.homeTeamId) || (finalMatch.homeTeam as unknown as Team) || null;
         }
       }
     }
@@ -148,11 +148,11 @@ export class SeasonLifecycleEngine {
       const finalMatch = clausuraPlayoffs.find((m) => m.round === 'clausura---final');
       if (finalMatch && finalMatch.status === 'finished' && finalMatch.homeScore !== null && finalMatch.awayScore !== null) {
         if (finalMatch.homeScore > finalMatch.awayScore) {
-          clausuraChampion = finalMatch.homeTeam || teams.find((t) => t.id === finalMatch.homeTeamId) || null;
-          clausuraRunnerUp = finalMatch.awayTeam || teams.find((t) => t.id === finalMatch.awayTeamId) || null;
+          clausuraChampion = teams.find((t) => t.id === finalMatch.homeTeamId) || (finalMatch.homeTeam as unknown as Team) || null;
+          clausuraRunnerUp = teams.find((t) => t.id === finalMatch.awayTeamId) || (finalMatch.awayTeam as unknown as Team) || null;
         } else {
-          clausuraChampion = finalMatch.awayTeam || teams.find((t) => t.id === finalMatch.awayTeamId) || null;
-          clausuraRunnerUp = finalMatch.homeTeam || teams.find((t) => t.id === finalMatch.homeTeamId) || null;
+          clausuraChampion = teams.find((t) => t.id === finalMatch.awayTeamId) || (finalMatch.awayTeam as unknown as Team) || null;
+          clausuraRunnerUp = teams.find((t) => t.id === finalMatch.homeTeamId) || (finalMatch.homeTeam as unknown as Team) || null;
         }
       }
     }

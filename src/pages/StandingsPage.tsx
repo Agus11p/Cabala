@@ -37,7 +37,10 @@ interface StandingsPageProps {
 }
 
 export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, initialTable, onTableChange }) => {
-  const [activeTable, setActiveTable] = useState<TableType>(initialTable || 'clausura');
+  const activePhase = footballService.getActiveSeasonPhase();
+  const isAperturaClosed = footballService.isSeasonClosed('apertura');
+
+  const [activeTable, setActiveTable] = useState<TableType>(initialTable || activePhase);
 
   useEffect(() => {
     if (initialTable) {
@@ -59,8 +62,8 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
   const [testResults, setTestResults] = useState<ReturnType<typeof runCompetitionRulesTests> | null>(null);
 
   const tableTabs = [
-    { id: 'clausura' as const, label: 'Torneo Clausura' },
-    { id: 'apertura' as const, label: 'Torneo Apertura' },
+    { id: 'clausura' as const, label: `Torneo Clausura ${activePhase === 'clausura' ? '(Activo)' : ''}` },
+    { id: 'apertura' as const, label: `Torneo Apertura ${isAperturaClosed ? '(Campeón: Belgrano)' : ''}` },
     { id: 'anual' as const, label: 'Tabla Anual (30 Clubes)' },
     { id: 'promedios' as const, label: 'Tabla de Promedios' },
     { id: 'copas' as const, label: 'Clasificación a Copas' },
@@ -589,7 +592,48 @@ export const StandingsPage: React.FC<StandingsPageProps> = ({ onSelectClub, init
         />
       ) : isZonePhase ? (
         /* VISTA OBLIGATORIA DE ZONAS: TABLA A Y TABLA B INDEPENDIENTES (JAMÁS MEZCLADAS) */
-        <div>
+        <div className="space-y-6">
+          {/* Banner Oficial de Campeón Belgrano de Córdoba cuando el Apertura está cerrado */}
+          {activeTable === 'apertura' && isAperturaClosed && (
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#121519] via-[#0E2638] to-[#121519] border border-[#00A8E8]/40 p-5 sm:p-6 shadow-xl">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-[#00A8E8]/20 border border-[#00A8E8]/40 flex items-center justify-center p-2.5 shrink-0 shadow-inner">
+                    <Trophy className="w-8 h-8 text-[#00A8E8]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#00A8E8]/20 text-[#00A8E8] text-[10px] font-black uppercase tracking-wider border border-[#00A8E8]/30">
+                        Campeón Oficial AFA
+                      </span>
+                      <span className="text-[11px] font-semibold text-[#8B949E]">
+                        Temporada Oficial 2026 · Certamen Cerrado
+                      </span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-black text-[#F1EDE6] tracking-tight">
+                      ¡Belgrano de Córdoba Campeón del Torneo Apertura 2026!
+                    </h2>
+                    <p className="text-xs text-[#8B949E] mt-1 max-w-xl">
+                      El Pirata se coronó campeón oficial tras vencer a River Plate por 3-2 en la Gran Final disputada en el Estadio Mario Alberto Kempes (24 de Mayo de 2026).
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-1.5 border-t sm:border-t-0 border-white/[0.08] pt-3 sm:pt-0 shrink-0">
+                  <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-wider">Plazas Obtenidas:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 rounded-lg bg-[#30A46C]/15 border border-[#30A46C]/30 text-[#30A46C] text-xs font-black">
+                      Copa Libertadores 2027 (Arg 1)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 rounded-lg bg-[#DCA842]/15 border border-[#DCA842]/30 text-[#DCA842] text-xs font-black">
+                      Trofeo de Campeones 2026
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {desktopLayout === 'split' ? (
             <>
               {/* Desktop: Vista lado a lado de ambas zonas independientes */}

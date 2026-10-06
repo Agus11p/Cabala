@@ -1,4 +1,4 @@
-export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled';
+export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' | 'suspended' | 'delayed';
 
 export interface Competition {
   id: string;
@@ -18,8 +18,8 @@ export interface Season {
 
 export interface MatchEvent {
   id: string;
-  minute: number;
-  type: 'goal' | 'penalty_goal' | 'yellow_card' | 'red_card' | 'sub';
+  minute: number | string;
+  type: 'goal' | 'penalty_goal' | 'yellow_card' | 'red_card' | 'sub' | 'var' | 'delay' | 'general';
   teamId: string;
   player: string;
   assistOrSubOut?: string;
@@ -52,6 +52,15 @@ export interface TeamLineup {
   substitutes: PlayerLineup[];
 }
 
+export interface ClubHonors {
+  league: number;
+  nationalCup: number;
+  international: number;
+  total: number;
+  highlighted?: string[];
+  summary?: string;
+}
+
 export interface Club {
   id: string;
   name: string;
@@ -59,14 +68,23 @@ export interface Club {
   code: string;
   city: string;
   neighborhood?: string;
+  province?: string;
   stadium: string;
+  stadiumNickname?: string;
+  stadiumCapacity?: number;
   founded: number;
+  foundedFullDate?: string;
+  nickname?: string;
+  nicknames?: string[];
+  president?: string;
+  manager?: string;
+  officialWebsite?: string;
   logo?: string;
   primaryColor: string;
   secondaryColor: string;
   accentColor?: string;
   zone?: 'A' | 'B';
-  recentForm: ('W' | 'D' | 'L')[];
+  recentForm?: ('W' | 'D' | 'L')[];
   seasonStats?: {
     played: number;
     won: number;
@@ -83,7 +101,10 @@ export interface Club {
     league: number;
     nationalCup: number;
     international: number;
+    total?: number;
   };
+  honors?: ClubHonors;
+  historySummary?: string;
 }
 
 // Team is an alias for Club for full backwards compatibility
@@ -106,7 +127,7 @@ export interface Match {
   homeScore: number | null;
   awayScore: number | null;
   status: MatchStatus;
-  minute?: number;
+  minute?: number | string;
   date: string;
   time: string;
   timestamp?: number;
@@ -124,6 +145,9 @@ export interface Match {
   provenance?: any;
   isStale?: boolean;
   verificationStatus?: string;
+  fetchedAt?: string;
+  firstSeenAt?: string;
+  [key: string]: any;
   phase?: 'apertura' | 'clausura' | 'playoffs' | string;
   zone?: 'A' | 'B' | string;
   season?: number;
@@ -149,6 +173,7 @@ export interface ZoneStanding {
   goalsAgainst: number;
   goalDiff: number;
   points: number;
+  penaltyPoints?: number;
   zone: 'A' | 'B';
   zonePosition: number; // 1 a 15
   phase: 'apertura' | 'clausura';
@@ -176,6 +201,7 @@ export interface AnnualStanding {
   goalsAgainst: number;
   goalDiff: number;
   points: number; // apertura.points + clausura.points
+  penaltyPoints?: number;
   seasonYear: string;
   form?: ('W' | 'D' | 'L')[];
   qualificationZone?: 'campeon_liga' | 'libertadores' | 'sudamericana' | 'relegation';
@@ -215,6 +241,7 @@ export interface StandingRow {
   goalsAgainst: number;
   goalDiff: number;
   points: number;
+  penaltyPoints?: number;
   zone?: 'A' | 'B';
   zonePosition?: number;
   phase?: 'apertura' | 'clausura';
@@ -270,6 +297,7 @@ export interface AverageTableResponse {
 
 export interface StandingsResponse {
   type: TableType;
+  phase?: 'apertura' | 'clausura' | string;
   available: boolean;
   season?: string;
   message?: string;
@@ -278,6 +306,30 @@ export interface StandingsResponse {
   zoneB?: ZoneStanding[];
   inconsistencies?: DataInconsistencyRecord[];
   dataState?: UIState;
+  champion?: string;
+  runnerUp?: string;
+  isClosed?: boolean;
+  activeTournament?: 'apertura' | 'clausura';
+  tournamentStatus?: 'active' | 'closed' | 'scheduled';
+}
+
+export interface SeasonPhaseInfo {
+  phase: 'apertura' | 'clausura';
+  tournamentName: string;
+  seasonYear: string;
+  isClosed: boolean;
+  status: 'active' | 'closed' | 'scheduled';
+  champion?: string;
+  championTeamId?: string;
+  runnerUp?: string;
+  finalMatch?: {
+    date: string;
+    score: string;
+    stadium: string;
+    homeTeam: string;
+    awayTeam: string;
+  };
+  description: string;
 }
 
 export type TableType =
@@ -288,7 +340,8 @@ export type TableType =
   | 'zonaA'
   | 'zonaB'
   | 'copas'
-  | 'playoffs';
+  | 'playoffs'
+  | 'all';
 
 export interface UserProfile {
   id: string;

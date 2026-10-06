@@ -267,11 +267,15 @@ export class ESPNProvider implements FootballDataProvider {
     const state = (ev.status?.type?.state || '').toLowerCase();
     const statusName = (ev.status?.type?.name || '').toLowerCase();
 
-    let status: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' = 'scheduled';
+    let status: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' | 'suspended' | 'delayed' = 'scheduled';
     if (state === 'post' || ev.status?.type?.completed || statusName.includes('final') || statusName.includes('full_time')) {
       status = 'finished';
     } else if (state === 'in' || statusName.includes('progress') || statusName.includes('halftime')) {
       status = 'live';
+    } else if (statusName.includes('suspended')) {
+      status = 'suspended';
+    } else if (statusName.includes('delay') || state.includes('delay')) {
+      status = 'delayed';
     } else if (statusName.includes('postponed')) {
       status = 'postponed';
     } else if (statusName.includes('cancelled')) {
@@ -305,8 +309,22 @@ export class ESPNProvider implements FootballDataProvider {
     }
 
     const dateObj = new Date(ev.date || comp.date || Date.now());
-    const dateStr = dateObj.toISOString().split('T')[0];
-    const timeStr = dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    let dateStr = dateObj.toISOString().split('T')[0];
+    let timeStr = '20:00';
+    if (!isNaN(dateObj.getTime())) {
+      dateStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(dateObj);
+      timeStr = new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(dateObj);
+    }
 
     // Determinar fase
     const phase: 'apertura' | 'clausura' | 'playoffs' =
@@ -331,6 +349,7 @@ export class ESPNProvider implements FootballDataProvider {
       date: dateStr,
       time: timeStr,
       kickoffTime: timeStr,
+      timestamp: dateObj.getTime(),
       stadium: comp.venue?.fullName || null,
       venue: {
         name: comp.venue?.fullName || 'Estadio Oficial',
@@ -1687,10 +1706,12 @@ export class MultiProviderIngestionEngine {
           standingsValid = false;
         }
 
-        // Validación 3: PTS = PG * 3 + PE
-        if (row.points !== row.won * 3 + row.drawn) {
+        // Validación 3: PTS = (PG * 3 + PE) - penaltyPoints
+        const penalty = (row as any).penaltyPoints || 0;
+        const expectedPts = row.won * 3 + row.drawn - penalty;
+        if (row.points !== expectedPts) {
           inconsistencies.push(
-            `Inconsistencia matemática en ${zoneName} (Club ${row.teamId}): PTS (${row.points}) != PG*3+PE (${row.won}*3+${row.drawn})`
+            `Inconsistencia matemática en ${zoneName} (Club ${row.teamId}): PTS (${row.points}) != PG*3+PE-Sanción (${row.won}*3+${row.drawn}-${penalty})`
           );
           standingsValid = false;
         }

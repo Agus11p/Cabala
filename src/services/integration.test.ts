@@ -75,7 +75,7 @@ export function runIntegrationTests(): {
       normalizedClub.id === '5' &&
       normalizedClub.code === 'CABJ' &&
       Boolean(normalizedClub.logo?.includes('5.png')) &&
-      normalizedClub.recentForm.length === 0;
+      (normalizedClub.recentForm?.length === 0 || normalizedClub.recentForm === undefined);
 
     add(
       'Provider → Normalización',

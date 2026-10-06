@@ -6,6 +6,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { BottomNav } from './components/layout/BottomNav';
 import { HomePage } from './pages/HomePage';
 import { MatchCardSkeleton } from './components/common/SkeletonLoader';
+import { googleToolsService } from './services/googleToolsService';
 
 // Code-splitting: Lazy-load heavy views & modals to optimize initial bundle size & load time
 const MatchesPage = lazy(() => import('./pages/MatchesPage').then((m) => ({ default: m.MatchesPage })));
@@ -16,8 +17,9 @@ const MatchDetailView = lazy(() => import('./components/matches/MatchDetailView'
 const ClubDetailView = lazy(() => import('./components/clubs/ClubDetailView').then((m) => ({ default: m.ClubDetailView })));
 const UserProfileModal = lazy(() => import('./components/layout/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
 const GameTeaserModal = lazy(() => import('./components/layout/GameTeaserModal').then((m) => ({ default: m.GameTeaserModal })));
+const VisionPage = lazy(() => import('./pages/VisionPage').then((m) => ({ default: m.VisionPage })));
 
-type ViewType = 'inicio' | 'partidos' | 'tablas' | 'copas_nacionales' | 'clubes';
+type ViewType = 'inicio' | 'partidos' | 'tablas' | 'copas_nacionales' | 'clubes' | 'vision';
 
 interface RouteState {
   view: ViewType;
@@ -68,6 +70,9 @@ function parseLocation(pathname: string): RouteState {
   if (cleanPath === '/clubes') {
     return { view: 'clubes', matchId: null, clubId: null };
   }
+  if (cleanPath === '/vision' || cleanPath === '/manifiesto' || cleanPath === '/proyecto') {
+    return { view: 'vision', matchId: null, clubId: null };
+  }
 
   return { view: 'inicio', matchId: null, clubId: null };
 }
@@ -84,6 +89,7 @@ function buildPath(view: ViewType, matchId?: string | null, clubId?: string | nu
   if (view === 'copas_nacionales') return '/copas-nacionales';
   if (view === 'partidos') return '/partidos';
   if (view === 'clubes') return '/clubes';
+  if (view === 'vision') return '/vision';
   return '/';
 }
 
@@ -132,27 +138,53 @@ export default function App() {
       });
   }, []);
 
-  // Fetch match details whenever selectedMatchId is set or changed
+  // Fetch match details whenever selectedMatchId is set or changed with live active polling
   useEffect(() => {
     let isCancelled = false;
+    let timer: NodeJS.Timeout | null = null;
+
     if (selectedMatchId) {
-      footballService
-        .getMatchById(selectedMatchId)
-        .then((detail) => {
-          if (!isCancelled && detail) {
-            setDetailedMatch(detail);
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to load detailed match info:', err);
-        });
+      const fetchDetail = () => {
+        if (typeof document !== 'undefined' && document.hidden) return;
+        footballService
+          .getMatchById(selectedMatchId)
+          .then((detail) => {
+            if (!isCancelled && detail) {
+              setDetailedMatch(detail);
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to load detailed match info:', err);
+          });
+      };
+
+      fetchDetail();
+
+      // Sondeo activo en vivo: si el usuario está viendo el partido en ese momento,
+      // actualiza cada 30 segundos automáticamente
+      timer = setInterval(fetchDetail, 30 * 1000);
     } else {
       setDetailedMatch(null);
     }
+
     return () => {
       isCancelled = true;
+      if (timer) clearInterval(timer);
     };
   }, [selectedMatchId]);
+
+  // Actualización automática de resultados cada 5 minutos (o cada 60s si hay partidos en vivo)
+  useEffect(() => {
+    const hasLive = matches.some((m) => m.status === 'live');
+    const intervalMs = hasLive ? 60 * 1000 : 5 * 60 * 1000;
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      handleRefreshMatches();
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [matches]);
 
   // Sync state from URL popstate (Browser Back/Forward)
   useEffect(() => {
@@ -195,21 +227,41 @@ export default function App() {
       setIsLoading(true);
       setError(null);
       const [allMatches, allTeams, standingsRes, newsInsights, user] = await Promise.all([
-        footballService.getMatches(),
-        footballService.getTeams(),
-        footballService.getStandings('clausura'),
-        footballService.getNews(),
-        footballService.getUserProfile(),
+        footballService.getMatches().catch(() => []),
+        footballService.getTeams().catch(() => []),
+        footballService.getStandings().catch(() => ({ type: footballService.getActiveSeasonPhase(), available: true, data: [] })),
+        footballService.getNews().catch(() => []),
+        footballService.getUserProfile().catch(() => ({
+          id: 'user_default',
+          username: 'hincha',
+          displayName: 'Hincha Argentino',
+          favoriteClubId: '5',
+          rankTitle: 'Iniciado',
+          rankTier: 'bronze' as const,
+          elo: 1000,
+          wins: 0,
+          losses: 0,
+          streak: 0,
+          achievements: [],
+        })),
       ]);
 
       setMatches(allMatches);
       setTeams(allTeams);
-      setTopStandings((standingsRes.data || []) as StandingRow[]);
+      setTopStandings(((standingsRes?.data || []) as StandingRow[]));
       setNews(newsInsights);
       setUserProfile(user);
       setIsLoading(false);
     } catch (err: any) {
-      setError(err?.message || 'Ocurrió un error al cargar la información oficial. Por favor reintentá.');
+      console.warn('CÁBALA fallback loader activated:', err);
+      try {
+        const fallbackTeams = await footballService.getTeams();
+        const fallbackMatches = await footballService.getMatches();
+        setTeams(fallbackTeams);
+        setMatches(fallbackMatches);
+      } catch (innerErr) {
+        console.error('Inner fallback error:', innerErr);
+      }
       setIsLoading(false);
     }
   }, []);
@@ -251,6 +303,7 @@ export default function App() {
     setSelectedClubId(null);
     setDetailedMatch(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    googleToolsService.trackPageView(targetView);
   };
 
   // Internal tab change inside StandingsPage (/tablas, /promedios, /copas, /playoffs)
@@ -260,6 +313,7 @@ export default function App() {
     if (window.location.pathname !== targetPath) {
       window.history.replaceState({ path: targetPath }, '', targetPath);
       currentPathRef.current = targetPath;
+      googleToolsService.trackPageView(`tablas/${table}`);
     }
   };
 
@@ -275,6 +329,7 @@ export default function App() {
     setSelectedMatchId(matchId);
     setSelectedClubId(null);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    googleToolsService.trackMatchView(matchId, 'local', 'visitante');
   };
 
   // Open club detail: saves scroll, pushes /club/:id, scrolls top
@@ -289,6 +344,7 @@ export default function App() {
     setSelectedClubId(clubId);
     setSelectedMatchId(null);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    googleToolsService.trackClubSelect(clubId, 'club');
   };
 
   // Back from match detail: uses window.history.back() or parent fallback with scroll restoration
@@ -316,21 +372,60 @@ export default function App() {
 
   // Selected entities
   const fallbackMatch = selectedMatchId ? matches.find((m) => m.id === selectedMatchId) || null : null;
-  const activeMatch = detailedMatch || fallbackMatch;
+  const activeMatch = useMemo(() => {
+    if (!detailedMatch && !fallbackMatch) return null;
+    const base = detailedMatch || fallbackMatch;
+    if (!base) return null;
+
+    // Si tenemos el partido del listado/preview, sus horarios y fechas oficiales MANDAN
+    const date = fallbackMatch?.date || detailedMatch?.date || base.date;
+    const time = fallbackMatch?.time || detailedMatch?.time || base.time;
+    const kickoffTime = fallbackMatch?.kickoffTime || detailedMatch?.kickoffTime || time;
+    const timestamp = fallbackMatch?.timestamp || detailedMatch?.timestamp || base.timestamp;
+    const tournament = fallbackMatch?.tournament || detailedMatch?.tournament || base.tournament;
+    const round = fallbackMatch?.round || detailedMatch?.round || base.round;
+
+    return {
+      ...base,
+      ...(detailedMatch || {}),
+      date,
+      time,
+      kickoffTime,
+      timestamp,
+      tournament,
+      round,
+    };
+  }, [detailedMatch, fallbackMatch]);
   const activeClub = selectedClubId ? teams.find((t) => t.id === selectedClubId) : null;
 
-  // Prioridad reglamentaria y de MVP:
-  // Si el usuario eligió un club (ej. Boca Juniors), su próximo partido (o partido en vivo)
-  // debe aparecer como PRINCIPAL en el inicio, y los demás encuentros abajo en chicos.
+  // Prioridad reglamentaria y de experiencia CÁBALA:
+  // Si el usuario eligió un club (ej. Boca Juniors), su partido reciente ya jugado (ej. 3-0 anoche),
+  // en vivo o próximo a jugar deben estar disponibles en el inicio.
   const userFavId = userProfile?.favoriteClubId;
-  const clubMatches = userFavId
-    ? matches.filter((m) => m.homeTeamId === userFavId || m.awayTeamId === userFavId)
-    : [];
+  const clubMatches = useMemo(() => {
+    return userFavId
+      ? matches.filter((m) => m.homeTeamId === userFavId || m.awayTeamId === userFavId)
+      : [];
+  }, [userFavId, matches]);
 
-  const clubLive = clubMatches.find((m) => m.status === 'live');
-  const clubUpcoming = clubMatches.find((m) => m.status === 'scheduled');
-  const clubRecent = clubMatches[0];
-  const favoriteClubFeatured = clubLive || clubUpcoming || clubRecent || null;
+  const clubLive = useMemo(() => {
+    return clubMatches.find((m) => m.status === 'live') || null;
+  }, [clubMatches]);
+
+  const clubRecentPlayed = useMemo(() => {
+    return clubMatches
+      .filter((m) => m.status === 'finished')
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0] || null;
+  }, [clubMatches]);
+
+  const clubNextScheduled = useMemo(() => {
+    return clubMatches
+      .filter((m) => m.status === 'scheduled')
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))[0] || null;
+  }, [clubMatches]);
+
+  // Si hay en vivo, es el destacado; si no, si jugó recientemente (ej. 3-0), mostrar ese resultado o el próximo
+  const favoriteClubFeatured = clubLive || clubRecentPlayed || clubNextScheduled || null;
 
   // Partidos programados a futuro o en juego ordenados cronológicamente
   const scheduledOrLiveMatches = useMemo(() => {
@@ -392,7 +487,7 @@ export default function App() {
         )}
 
         {/* Dynamic Center Stage */}
-        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-6 md:py-8">
+        <main className="flex-1 min-w-0 px-3 sm:px-6 lg:px-10 py-5 sm:py-6 md:py-8 pb-28 lg:pb-8">
           {isLoading ? (
             <div className="space-y-6">
               <div className="h-64 rounded-3xl bg-[#121519] border border-[#22272E] animate-pulse" />
@@ -474,6 +569,10 @@ export default function App() {
                       featuredMatch={featuredMatch}
                       liveMatches={liveMatches}
                       upcomingMatches={upcomingMatches}
+                      allMatches={matches}
+                      userClubLiveMatch={clubLive}
+                      userClubRecentMatch={clubRecentPlayed}
+                      userClubUpcomingMatch={clubNextScheduled}
                       topTeams={teams}
                       topStandings={topStandings}
                       news={news}
@@ -526,6 +625,16 @@ export default function App() {
                       />
                     </Suspense>
                   )}
+
+                  {currentView === 'vision' && (
+                    <Suspense fallback={pageLoadingFallback}>
+                      <VisionPage
+                        onNavigate={handleNavigate}
+                        onOpenGame={() => setIsGameTeaserOpen(true)}
+                        onOpenProfile={() => setIsProfileOpen(true)}
+                      />
+                    </Suspense>
+                  )}
                 </>
               )}
             </>
@@ -572,6 +681,9 @@ export default function App() {
                 </button>
                 <button onClick={() => handleNavigate('clubes')} className="hover:text-[#F1EDE6] transition-colors">
                   Clubes
+                </button>
+                <button onClick={() => handleNavigate('vision')} className="text-[#DCA842] font-bold hover:underline transition-colors flex items-center gap-1">
+                  <span>Visión CÁBALA</span>
                 </button>
                 <span className="text-[#8B949E]/50">·</span>
                 <span>Temporada Oficial 2026</span>

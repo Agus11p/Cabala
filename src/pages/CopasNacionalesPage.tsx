@@ -29,8 +29,8 @@ interface CopasNacionalesPageProps {
 }
 
 export const CopasNacionalesPage: React.FC<CopasNacionalesPageProps> = ({ onSelectClub }) => {
-  const [activeTab, setActiveTab] = useState<'arbol' | 'copa_argentina'>('arbol');
-  const [copaSubTab, setCopaSubTab] = useState<'fixture' | 'bracket' | 'results' | 'semis'>('fixture');
+  const [activeTab, setActiveTab] = useState<'copa_argentina' | 'arbol'>('copa_argentina');
+  const [copaSubTab, setCopaSubTab] = useState<'fixture' | 'bracket' | 'results' | 'semis' | 'campeones'>('fixture');
   const [copaMatches, setCopaMatches] = useState<Match[]>([]);
   const [copaSummary, setCopaSummary] = useState<CopaArgentinaSummary | null>(null);
   const [copaBracket, setCopaBracket] = useState<CopaArgentinaBracket | null>(null);
@@ -129,28 +129,31 @@ export const CopasNacionalesPage: React.FC<CopasNacionalesPageProps> = ({ onSele
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Selector de sub-sección: Árbol de Supercopas vs Copa Argentina */}
-          <div className="flex items-center bg-[#121519] p-1 rounded-xl border border-white/[0.08]">
-            <button
-              onClick={() => setActiveTab('arbol')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'arbol'
-                  ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm'
-                  : 'text-[#8B949E] hover:text-[#F1EDE6]'
-              }`}
-            >
-              Árbol de Títulos AFA
-            </button>
+          {/* Selector de sub-sección: Copa Argentina vs Árbol de Supercopas */}
+          <div className="flex items-center bg-[#121519] p-1.5 rounded-2xl border border-white/[0.08] shadow-sm">
             <button
               onClick={() => setActiveTab('copa_argentina')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 activeTab === 'copa_argentina'
                   ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm'
                   : 'text-[#8B949E] hover:text-[#F1EDE6]'
               }`}
             >
               <Trophy className="w-3.5 h-3.5" />
-              <span>Copa Argentina 2026 ({roundCounts.all})</span>
+              <span>Copa Argentina 2026</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-black/15 font-num">
+                {roundCounts.all}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('arbol')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'arbol'
+                  ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm'
+                  : 'text-[#8B949E] hover:text-[#F1EDE6]'
+              }`}
+            >
+              Árbol de Títulos AFA
             </button>
           </div>
         </div>
@@ -644,6 +647,7 @@ export const CopasNacionalesPage: React.FC<CopasNacionalesPageProps> = ({ onSele
               { id: 'bracket', label: 'Cuadro de Eliminación (Bracket)', icon: Trophy },
               { id: 'results', label: 'Resultados Oficiales', icon: CheckCircle2, badge: `${roundCounts.all - (copaSummary?.scheduledMatches || 2)}` },
               { id: 'semis', label: 'Semifinales en Disputa', icon: Flame, badge: '2' },
+              { id: 'campeones', label: 'Campeones & Clasificación', icon: Award, badge: 'AFA' },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = copaSubTab === tab.id;
@@ -1190,6 +1194,217 @@ export const CopasNacionalesPage: React.FC<CopasNacionalesPageProps> = ({ onSele
                       Definición a partido único. En caso de igualdad al término de los 90 minutos reglamentarios, se define por tanda de tiros desde el punto penal.
                     </p>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ───────────────────────────────────────────────────────────
+              SUB-TAB 5: CAMPEONES & A QUÉ CLASIFICA EL CAMPEÓN
+             ─────────────────────────────────────────────────────────── */}
+          {copaSubTab === 'campeones' && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* Banner Destacado: ¿A qué clasifica el Campeón? */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#182338] via-[#101726] to-[#0D1422] border-2 border-[#DCA842] shadow-2xl space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#DCA842] flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5" />
+                      Reglamento Oficial AFA / CONMEBOL
+                    </span>
+                    <h3 className="font-editorial font-black text-2xl sm:text-3xl text-[#F1EDE6] tracking-tight">
+                      ¿A QUÉ CLASIFICA EL GANADOR DE LA COPA ARGENTINA?
+                    </h3>
+                    <p className="text-xs text-[#8B949E]">
+                      El campeón obtiene múltiples plazas internacionales de élite y títulos oficiales directos.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1.5 rounded-xl bg-[#DCA842] text-[#0A0C0E] font-black text-xs uppercase tracking-wider shrink-0 self-start sm:self-auto">
+                    4 Plazas & Trofeos
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* 1. Copa Libertadores */}
+                  <div className="p-4 rounded-2xl bg-[#0F1624] border border-[#DCA842]/30 space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-[#DCA842]/15 text-[#DCA842] flex items-center justify-center font-black text-xs font-num">
+                      1
+                    </div>
+                    <h4 className="font-editorial font-bold text-sm text-[#F1EDE6]">
+                      Copa Libertadores 2027
+                    </h4>
+                    <p className="text-[11px] text-[#8B949E] leading-relaxed">
+                      Clasifica directo a la <strong>Fase de Grupos</strong> con la plaza oficial <strong>Argentina 3</strong>, sin necesidad de disputar fases previas.
+                    </p>
+                  </div>
+
+                  {/* 2. Supercopa Argentina */}
+                  <div className="p-4 rounded-2xl bg-[#0F1624] border border-[#DCA842]/30 space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-[#DCA842]/15 text-[#DCA842] flex items-center justify-center font-black text-xs font-num">
+                      2
+                    </div>
+                    <h4 className="font-editorial font-bold text-sm text-[#F1EDE6]">
+                      Supercopa Argentina 2026
+                    </h4>
+                    <p className="text-[11px] text-[#8B949E] leading-relaxed">
+                      Disputa una final a partido único frente al <strong>Campeón del Torneo Apertura / Liga Profesional</strong> por una copa nacional oficial.
+                    </p>
+                  </div>
+
+                  {/* 3. Cuadro de Supercopas AFA */}
+                  <div className="p-4 rounded-2xl bg-[#0F1624] border border-[#DCA842]/30 space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-[#DCA842]/15 text-[#DCA842] flex items-center justify-center font-black text-xs font-num">
+                      3
+                    </div>
+                    <h4 className="font-editorial font-bold text-sm text-[#F1EDE6]">
+                      Supercopas AFA
+                    </h4>
+                    <p className="text-[11px] text-[#8B949E] leading-relaxed">
+                      Habilita la llave para clasificar a la <strong>Recopa de los Campeones</strong> y certámenes de sede internacional de AFA.
+                    </p>
+                  </div>
+
+                  {/* 4. Título Oficial AFA */}
+                  <div className="p-4 rounded-2xl bg-[#0F1624] border border-[#DCA842]/30 space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-[#DCA842]/15 text-[#DCA842] flex items-center justify-center font-black text-xs font-num">
+                      4
+                    </div>
+                    <h4 className="font-editorial font-bold text-sm text-[#F1EDE6]">
+                      Estrella Oficial en Escudo
+                    </h4>
+                    <p className="text-[11px] text-[#8B949E] leading-relaxed">
+                      Suma un título oficial de <strong>Copa Nacional de Primera División</strong> en los registros históricos de la Asociación del Fútbol Argentino.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabla Histórica de Campeones (Palmarés) */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842] block mb-0.5">
+                      Palmarés Histórico Oficial
+                    </span>
+                    <h3 className="font-editorial font-bold text-xl text-[#F1EDE6]">
+                      Tabla de Campeones de Copa Argentina (1969 - 2025)
+                    </h3>
+                  </div>
+                  <span className="text-xs text-[#8B949E]">
+                    8 clubes coronados
+                  </span>
+                </div>
+
+                <div className="bg-[#121519] border border-white/[0.08] rounded-3xl overflow-hidden divide-y divide-white/[0.06]">
+                  {[
+                    { club: 'Boca Juniors', titles: 4, years: '1969, 2011/12, 2014/15, 2019/20', finals: '4/4 (100%)', badgeId: '5', note: 'Máximo ganador histórico indiscutido' },
+                    { club: 'River Plate', titles: 3, years: '2015/16, 2016/17, 2018/19', finals: '3/3 (100%)', badgeId: '16', note: 'Bicampeón consecutivo 2016-2017' },
+                    { club: 'Rosario Central', titles: 1, years: '2017/18', finals: '1/4', badgeId: '17', note: 'Finalista en 4 ediciones (2014, 2015, 2016, 2018)' },
+                    { club: 'Arsenal de Sarandí', titles: 1, years: '2012/13', finals: '1/1', badgeId: '2', note: 'Campeón en Catamarca ante San Lorenzo (3-0)' },
+                    { club: 'Huracán', titles: 1, years: '2013/14', finals: '1/1', badgeId: '10', note: 'Campeón invicto por penales ante Central' },
+                    { club: 'Patronato (Paraná)', titles: 1, years: '2022', finals: '1/1', badgeId: '9740', note: 'Histórico campeón federal de Entre Ríos' },
+                    { club: 'Estudiantes de La Plata', titles: 1, years: '2023', finals: '1/1', badgeId: '8', note: 'Campeón en Lanús ante Defensa y Justicia (1-0)' },
+                    { club: 'Central Córdoba (SdE)', titles: 1, years: '2024', finals: '1/2', badgeId: '11989', note: 'Campeón federal en Mendoza ante Vélez (1-0)' },
+                  ].map((row, idx) => (
+                    <div
+                      key={row.club}
+                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#181C22]/60 transition-colors"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <span className={`font-num font-black text-sm w-5 text-center ${idx === 0 ? 'text-[#DCA842]' : 'text-[#8B949E]'}`}>
+                          {idx + 1}
+                        </span>
+                        <TeamBadge teamId={row.badgeId} size="sm" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-editorial font-bold text-sm sm:text-base text-[#F1EDE6]">
+                              {row.club}
+                            </span>
+                            {idx === 0 && (
+                              <span className="text-[9px] uppercase font-black px-1.5 py-0.2 rounded bg-[#DCA842]/20 text-[#DCA842] border border-[#DCA842]/30">
+                                Tetracampeón
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-[#8B949E]">
+                            Ediciones: {row.years}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6 sm:text-right pl-8 sm:pl-0">
+                        <div>
+                          <span className="text-[10px] text-[#8B949E] uppercase font-bold block">Efectividad</span>
+                          <span className="text-xs font-semibold text-[#F1EDE6] font-num">{row.finals}</span>
+                        </div>
+                        <div className="min-w-[60px]">
+                          <span className="text-[10px] text-[#DCA842] uppercase font-bold block">Títulos</span>
+                          <span className="font-num font-black text-xl text-[#F1EDE6]">
+                            {row.titles} <Trophy className="w-3.5 h-3.5 text-[#DCA842] inline-block ml-0.5 mb-1" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Registro Detallado de Todas las Finales */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B949E] block mb-0.5">
+                      Historial de Partidos Decisivos
+                    </span>
+                    <h3 className="font-editorial font-bold text-xl text-[#F1EDE6]">
+                      Todas las Finales Disputadas
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {[
+                    { year: '2024', champion: 'Central Córdoba (SdE)', runnerUp: 'Vélez Sarsfield', score: '1 - 0', stadium: 'Estadio Malvinas Argentinas, Mendoza' },
+                    { year: '2023', champion: 'Estudiantes de La Plata', runnerUp: 'Defensa y Justicia', score: '1 - 0', stadium: 'Estadio Ciudad de Lanús' },
+                    { year: '2022', champion: 'Patronato (Paraná)', runnerUp: 'Talleres (Córdoba)', score: '1 - 0', stadium: 'Estadio Malvinas Argentinas, Mendoza' },
+                    { year: '2020', champion: 'Boca Juniors', runnerUp: 'Talleres (Córdoba)', score: '0 (5) - (4) 0', stadium: 'Madre de Ciudades, Santiago del Estero' },
+                    { year: '2019', champion: 'River Plate', runnerUp: 'Central Córdoba (SdE)', score: '3 - 0', stadium: 'Estadio Malvinas Argentinas, Mendoza' },
+                    { year: '2018', champion: 'Rosario Central', runnerUp: 'Gimnasia La Plata', score: '1 (4) - (1) 1', stadium: 'Estadio Malvinas Argentinas, Mendoza' },
+                    { year: '2017', champion: 'River Plate', runnerUp: 'Atlético Tucumán', score: '2 - 1', stadium: 'Estadio Malvinas Argentinas, Mendoza' },
+                    { year: '2016', champion: 'River Plate', runnerUp: 'Rosario Central', score: '4 - 3', stadium: 'Estadio Mario Alberto Kempes, Córdoba' },
+                    { year: '2015', champion: 'Boca Juniors', runnerUp: 'Rosario Central', score: '2 - 0', stadium: 'Estadio Mario Alberto Kempes, Córdoba' },
+                    { year: '2014', champion: 'Huracán', runnerUp: 'Rosario Central', score: '0 (5) - (4) 0', stadium: 'Estadio San Juan del Bicentenario' },
+                    { year: '2013', champion: 'Arsenal de Sarandí', runnerUp: 'San Lorenzo', score: '3 - 0', stadium: 'Bicentenario de Catamarca' },
+                    { year: '2012', champion: 'Boca Juniors', runnerUp: 'Racing Club', score: '2 - 1', stadium: 'Estadio San Juan del Bicentenario' },
+                    { year: '1969', champion: 'Boca Juniors', runnerUp: 'Atlanta', score: '3 - 2 (Global)', stadium: 'Estadio de San Lorenzo (Gasómetro)' },
+                  ].map((final) => (
+                    <div
+                      key={final.year}
+                      className="p-4 rounded-2xl bg-[#121519] border border-white/[0.08] hover:border-[#DCA842]/40 transition-colors space-y-2"
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="px-2 py-0.5 rounded-md bg-[#DCA842]/15 text-[#DCA842] font-black font-num text-[11px]">
+                          Edición {final.year}
+                        </span>
+                        <span className="text-[10px] text-[#8B949E] truncate max-w-[200px]">
+                          {final.stadium}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between py-1">
+                        <span className="font-bold text-sm text-[#F1EDE6] flex items-center gap-1.5">
+                          <Trophy className="w-3.5 h-3.5 text-[#DCA842]" />
+                          {final.champion}
+                        </span>
+                        <span className="font-num font-black text-sm text-[#DCA842] px-2 py-0.5 rounded bg-black/30">
+                          {final.score}
+                        </span>
+                        <span className="text-xs text-[#8B949E]">
+                          {final.runnerUp}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

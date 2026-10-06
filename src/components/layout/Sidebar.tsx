@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../../types/football';
 import { TeamBadge } from '../common/TeamBadge';
-import { Home, Flame, Trophy, Shield, Zap, Award } from 'lucide-react';
+import { Home, Flame, Trophy, Shield, Zap, Award, Sparkles } from 'lucide-react';
 
 interface SidebarProps {
   currentView: string;
@@ -100,6 +100,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Shield className="w-4 h-4" />
             <span>Clubes</span>
           </button>
+
+          <button
+            onClick={() => onNavigate('vision')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              currentView === 'vision'
+                ? 'bg-[#181C22] text-[#DCA842] font-bold border border-white/[0.08]'
+                : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#121519]'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-[#DCA842]" />
+            <span>Visión CÁBALA</span>
+          </button>
         </div>
 
         {/* Section 2: Experiencia Competitiva */}
@@ -112,13 +124,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onOpenGame}
               className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-[#0A0C0E] bg-[#DCA842] hover:bg-[#c99532] transition-colors shadow-sm"
+              title="Modo Competitivo (Próximamente)"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <Zap className="w-4 h-4 fill-[#0A0C0E]" />
                 <span>Jugar Duelo</span>
               </div>
-              <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-black/15">
-                1v1
+              <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-black/20 text-[#0A0C0E]">
+                Pronto
               </span>
             </button>
           </div>

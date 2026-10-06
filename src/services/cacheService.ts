@@ -30,8 +30,8 @@ export const CACHE_TTL = {
   NEWS: 10 * 60 * 1000,                 // 10 minutos para noticias
 };
 
-const CACHE_PREFIX = 'cabala_cache_v2:';
-const CURRENT_VERSION = '2026.1';
+const CACHE_PREFIX = 'cabala_cache_v4:';
+const CURRENT_VERSION = '2026.4';
 
 export class CacheService {
   private memoryFallback = new Map<string, CacheEntry<any>>();
@@ -39,6 +39,24 @@ export class CacheService {
 
   constructor() {
     this.isStorageAvailable = this.checkStorageAvailability();
+    if (this.isStorageAvailable) {
+      this.purgeLegacyCaches();
+    }
+  }
+
+  private purgeLegacyCaches(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        for (let i = window.localStorage.length - 1; i >= 0; i--) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith('cabala_cache_') && !k.startsWith(CACHE_PREFIX)) {
+            window.localStorage.removeItem(k);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
   private checkStorageAvailability(): boolean {

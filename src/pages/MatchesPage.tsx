@@ -11,7 +11,10 @@ import {
   Radio,
   CheckCircle2,
   Clock,
-  Sparkles,
+  Trophy,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
 } from 'lucide-react';
 
 interface MatchesPageProps {
@@ -21,8 +24,27 @@ interface MatchesPageProps {
   isLoading?: boolean;
 }
 
-type MatchesViewMode = 'proxima_fecha' | 'en_vivo' | 'resultados' | 'fixture_completo';
-type ZoneFilter = 'all' | 'A' | 'B';
+export type MatchesViewMode = 'fecha_actual' | 'en_vivo' | 'copa_argentina' | 'resultados' | 'fixture_completo';
+export type ZoneFilter = 'all' | 'A' | 'B';
+
+// Fechas oficiales del Clausura 2026 con rangos de días para filtrado limpio
+const CLAUSURA_ROUNDS = [
+  { id: 'fecha_1', label: 'Fecha 1', start: '2026-07-16', end: '2026-07-20' },
+  { id: 'fecha_2', label: 'Fecha 2', start: '2026-07-23', end: '2026-07-27' },
+  { id: 'fecha_3', label: 'Fecha 3', start: '2026-07-30', end: '2026-08-03' },
+  { id: 'fecha_4', label: 'Fecha 4', start: '2026-08-06', end: '2026-08-10' },
+  { id: 'fecha_5', label: 'Fecha 5', start: '2026-08-13', end: '2026-08-17' },
+  { id: 'fecha_6', label: 'Fecha 6', start: '2026-08-20', end: '2026-08-24' },
+  { id: 'fecha_7', label: 'Fecha 7', start: '2026-08-27', end: '2026-08-31' },
+  { id: 'fecha_8', label: 'Fecha 8', start: '2026-09-03', end: '2026-09-07' },
+  { id: 'fecha_9', label: 'Fecha 9', start: '2026-09-10', end: '2026-09-14' },
+  { id: 'fecha_10', label: 'Fecha 10', start: '2026-09-17', end: '2026-09-21' },
+  { id: 'fecha_11', label: 'Fecha 11', start: '2026-09-24', end: '2026-09-28' },
+  { id: 'fecha_12', label: 'Fecha 12 (Fecha Actual)', start: '2026-10-02', end: '2026-10-05', isCurrent: true },
+  { id: 'fecha_13', label: 'Fecha 13', start: '2026-10-09', end: '2026-10-12' },
+  { id: 'fecha_14', label: 'Fecha 14', start: '2026-10-16', end: '2026-10-19' },
+  { id: 'fecha_15', label: 'Fecha 15', start: '2026-10-23', end: '2026-10-26' },
+];
 
 export const MatchesPage: React.FC<MatchesPageProps> = ({
   matches: initialMatches = [],
@@ -30,11 +52,14 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
   onRefresh,
   isLoading: initialLoading = false,
 }) => {
-  const [viewMode, setViewMode] = useState<MatchesViewMode>('proxima_fecha');
+  // PREDETERMINADO: 'fecha_actual' (muestra únicamente los ~14 partidos de la fecha en disputa)
+  const [viewMode, setViewMode] = useState<MatchesViewMode>('fecha_actual');
+  const [selectedRoundIndex, setSelectedRoundIndex] = useState<number>(11); // Fecha 12 preseleccionada
   const [zoneFilter, setZoneFilter] = useState<ZoneFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const [matches, setMatches] = useState<Match[]>(initialMatches);
+  const [copaMatches, setCopaMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,24 +68,29 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
       setIsLoading(true);
       setError(null);
       try {
-        const filter: MatchFilter = {};
+        if (mode === 'copa_argentina') {
+          const ca = await footballService.getCopaArgentinaMatches();
+          setCopaMatches(ca);
+          setMatches(ca);
+        } else {
+          const filter: MatchFilter = {};
 
-        if (mode === 'proxima_fecha') {
-          filter.scope = 'upcoming';
-        } else if (mode === 'en_vivo') {
-          filter.status = 'live';
-        } else if (mode === 'resultados') {
-          filter.scope = 'recent';
-        } else if (mode === 'fixture_completo') {
-          filter.scope = 'all';
+          if (mode === 'en_vivo') {
+            filter.status = 'live';
+          } else if (mode === 'resultados') {
+            filter.scope = 'recent';
+          } else {
+            // fecha_actual o fixture_completo
+            filter.scope = 'all';
+          }
+
+          if (zone !== 'all') {
+            filter.zone = zone;
+          }
+
+          const data = await footballService.getMatches(filter);
+          setMatches(data);
         }
-
-        if (zone !== 'all') {
-          filter.zone = zone;
-        }
-
-        const data = await footballService.getMatches(filter);
-        setMatches(data);
       } catch (err: any) {
         console.error('Error fetching matches:', err);
         setError(err.message || 'Error al consultar el fixture de partidos.');
@@ -75,9 +105,46 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
     fetchMatches(viewMode, zoneFilter);
   }, [viewMode, zoneFilter, fetchMatches]);
 
+  // Filtrado específico según modo y fecha actual
+  const currentRoundInfo = CLAUSURA_ROUNDS[selectedRoundIndex] || CLAUSURA_ROUNDS[11];
+
+  const filteredByMode = useMemo(() => {
+    if (viewMode === 'fecha_actual') {
+      // Filtrar únicamente los partidos comprendidos en la fecha seleccionada
+      const roundMatches = matches.filter((m) => {
+        if (!m.date) return false;
+        return m.date >= currentRoundInfo.start && m.date <= currentRoundInfo.end;
+      });
+      // Priorizar en vivo primero, luego cronológicamente por timestamp oficial
+      return roundMatches.sort((a, b) => {
+        if (a.status === 'live' && b.status !== 'live') return -1;
+        if (b.status === 'live' && a.status !== 'live') return 1;
+        return (a.timestamp || 0) - (b.timestamp || 0);
+      });
+    }
+
+    if (viewMode === 'en_vivo') {
+      return matches.filter((m) => m.status === 'live');
+    }
+
+    if (viewMode === 'resultados') {
+      return matches
+        .filter((m) => m.status === 'finished')
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 20); // Máximo 20 recientes para no abrumar
+    }
+
+    if (viewMode === 'copa_argentina') {
+      return matches.filter((m) => (m.tournament || '').toLowerCase().includes('copa argentina'));
+    }
+
+    // Fixture completo: ordenado cronológicamente
+    return matches;
+  }, [matches, viewMode, currentRoundInfo]);
+
   // Client search filter
   const displayedMatches = useMemo(() => {
-    return matches.filter((m) => {
+    return filteredByMode.filter((m) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       const home = (m.homeTeam?.name || m.homeTeam?.shortName || '').toLowerCase();
@@ -86,7 +153,7 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
       const round = (m.round || '').toLowerCase();
       return home.includes(q) || away.includes(q) || stadium.includes(q) || round.includes(q);
     });
-  }, [matches, searchQuery]);
+  }, [filteredByMode, searchQuery]);
 
   // Conteo de partidos en vivo para el badge
   const liveCount = useMemo(() => {
@@ -123,6 +190,18 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
     }
   };
 
+  const handlePrevRound = () => {
+    if (selectedRoundIndex > 0) {
+      setSelectedRoundIndex(selectedRoundIndex - 1);
+    }
+  };
+
+  const handleNextRound = () => {
+    if (selectedRoundIndex < CLAUSURA_ROUNDS.length - 1) {
+      setSelectedRoundIndex(selectedRoundIndex + 1);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn pb-16">
       {/* Clean Page Header */}
@@ -130,15 +209,20 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#DCA842]/15 text-[#DCA842] border border-[#DCA842]/30">
-              Torneo Clausura 2026
+              Primera División 2026
             </span>
             <span className="text-[11px] text-[#8B949E]">
-              Primera División AFA
+              {viewMode === 'copa_argentina' ? 'Copa Argentina Federal AFA' : 'Torneo Clausura Oficial'}
             </span>
           </div>
           <h1 className="font-editorial font-black text-3xl sm:text-4xl text-[#F1EDE6] tracking-tight">
             PARTIDOS Y FIXTURE
           </h1>
+          <p className="text-xs text-[#8B949E] mt-0.5">
+            {viewMode === 'fecha_actual'
+              ? `Viendo solo los ${displayedMatches.length} partidos de la jornada actual para una lectura clara y rápida.`
+              : 'Fixture oficial de torneos y copas del fútbol argentino.'}
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -153,33 +237,26 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
         </div>
       </div>
 
-      {/* Main Simplified Navigation: Próxima Fecha, En Vivo, Resultados, Fixture */}
+      {/* Main Mode Navigation: Fecha Actual (predeterminado), En Vivo, Copa Argentina, Resultados, Fixture */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#121519] border border-white/[0.08] p-2.5 rounded-2xl">
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
+          {/* 1. FECHA ACTUAL (Default requested by user) */}
           <button
-            onClick={() => setViewMode('proxima_fecha')}
+            onClick={() => setViewMode('fecha_actual')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
-              viewMode === 'proxima_fecha'
-                ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm'
+              viewMode === 'fecha_actual'
+                ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm font-extrabold'
                 : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#181C22]'
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Próxima Fecha</span>
+            <span>Fecha Actual</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-black/15 font-num">
+              {CLAUSURA_ROUNDS[selectedRoundIndex].label.split(' ')[1]}
+            </span>
           </button>
 
-          <button
-            onClick={() => setViewMode('resultados')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
-              viewMode === 'resultados'
-                ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm'
-                : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#181C22]'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Últimos Resultados</span>
-          </button>
-
+          {/* 2. EN VIVO */}
           <button
             onClick={() => setViewMode('en_vivo')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
@@ -195,36 +272,125 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
             )}
           </button>
 
+          {/* 3. COPA ARGENTINA (Direct match access) */}
+          <button
+            onClick={() => setViewMode('copa_argentina')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
+              viewMode === 'copa_argentina'
+                ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm font-extrabold'
+                : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#181C22]'
+            }`}
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Copa Argentina</span>
+          </button>
+
+          {/* 4. RESULTADOS RECIENTES */}
+          <button
+            onClick={() => setViewMode('resultados')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
+              viewMode === 'resultados'
+                ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm font-extrabold'
+                : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#181C22]'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Resultados</span>
+          </button>
+
+          {/* 5. FIXTURE COMPLETO */}
           <button
             onClick={() => setViewMode('fixture_completo')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
               viewMode === 'fixture_completo'
-                ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm'
+                ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm font-extrabold'
                 : 'text-[#8B949E] hover:text-[#F1EDE6] hover:bg-[#181C22]'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Fixture Completo</span>
+            <span>Todas las Fechas</span>
           </button>
         </div>
 
         {/* Zona A / Zona B Filter */}
-        <div className="flex items-center gap-1 bg-[#181C22] p-1 rounded-xl border border-white/[0.06] shrink-0 self-start sm:self-auto">
-          {(['all', 'A', 'B'] as ZoneFilter[]).map((z) => (
-            <button
-              key={z}
-              onClick={() => setZoneFilter(z)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                zoneFilter === z
-                  ? 'bg-[#DCA842] text-[#0A0C0E] font-bold'
-                  : 'text-[#8B949E] hover:text-[#F1EDE6]'
-              }`}
-            >
-              {z === 'all' ? 'Todas' : `Zona ${z}`}
-            </button>
-          ))}
-        </div>
+        {viewMode !== 'copa_argentina' && (
+          <div className="flex items-center gap-1 bg-[#181C22] p-1 rounded-xl border border-white/[0.06] shrink-0 self-start sm:self-auto">
+            {(['all', 'A', 'B'] as ZoneFilter[]).map((z) => (
+              <button
+                key={z}
+                onClick={() => setZoneFilter(z)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  zoneFilter === z
+                    ? 'bg-[#DCA842] text-[#0A0C0E] font-bold'
+                    : 'text-[#8B949E] hover:text-[#F1EDE6]'
+                }`}
+              >
+                {z === 'all' ? 'Todas' : `Zona ${z}`}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Selector de Jornada / Round Controller (cuando se está en "Fecha Actual" o "Fixture Completo") */}
+      {viewMode === 'fecha_actual' && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-[#181C22] via-[#15191F] to-[#121519] border border-white/[0.08]">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePrevRound}
+              disabled={selectedRoundIndex === 0}
+              className="p-2 rounded-xl bg-[#121519] border border-white/[0.08] hover:border-[#DCA842] text-[#8B949E] hover:text-[#F1EDE6] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              aria-label="Fecha anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#DCA842]" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#DCA842]">
+                  {currentRoundInfo.isCurrent ? 'FECHA EN DISPUTA' : 'JORNADA OFICIAL'}
+                </span>
+              </div>
+              <h2 className="font-editorial font-bold text-base sm:text-lg text-[#F1EDE6]">
+                {currentRoundInfo.label}
+              </h2>
+            </div>
+
+            <button
+              onClick={handleNextRound}
+              disabled={selectedRoundIndex === CLAUSURA_ROUNDS.length - 1}
+              className="p-2 rounded-xl bg-[#121519] border border-white/[0.08] hover:border-[#DCA842] text-[#8B949E] hover:text-[#F1EDE6] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              aria-label="Fecha siguiente"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-xs text-[#8B949E] hidden sm:inline">Ir a fecha:</span>
+            <select
+              value={selectedRoundIndex}
+              onChange={(e) => setSelectedRoundIndex(Number(e.target.value))}
+              className="bg-[#121519] border border-white/[0.12] hover:border-[#DCA842] text-xs font-semibold text-[#F1EDE6] py-1.5 px-3 rounded-xl focus:outline-hidden transition-colors cursor-pointer"
+            >
+              {CLAUSURA_ROUNDS.map((r, idx) => (
+                <option key={r.id} value={idx} className="bg-[#121519] text-[#F1EDE6]">
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            {selectedRoundIndex !== 11 && (
+              <button
+                onClick={() => setSelectedRoundIndex(11)}
+                className="text-[11px] px-2.5 py-1.5 rounded-xl bg-[#DCA842]/15 text-[#DCA842] border border-[#DCA842]/30 font-bold hover:bg-[#DCA842]/25 transition-colors"
+              >
+                Volver a Fecha 12
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Quick Search */}
       <div className="relative max-w-md">
@@ -248,56 +414,59 @@ export const MatchesPage: React.FC<MatchesPageProps> = ({
 
       {/* Matches Content */}
       {isLoading || initialLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <MatchCardSkeleton key={i} />
-          ))}
+        <div className="space-y-4">
+          <MatchCardSkeleton />
+          <MatchCardSkeleton />
+          <MatchCardSkeleton />
         </div>
       ) : error ? (
-        <EmptyState
-          title="No se pudieron cargar los partidos"
-          description={error}
-          actionLabel="Reintentar"
-          onAction={() => fetchMatches(viewMode, zoneFilter)}
-        />
+        <div className="p-8 text-center bg-[#121519] rounded-2xl border border-red-500/20 text-red-400 space-y-3">
+          <p className="font-semibold text-sm">{error}</p>
+          <button
+            onClick={() => fetchMatches(viewMode, zoneFilter)}
+            className="px-4 py-2 bg-[#DCA842] text-[#0A0C0E] font-bold text-xs rounded-xl"
+          >
+            Reintentar
+          </button>
+        </div>
       ) : displayedMatches.length === 0 ? (
         <EmptyState
           title={
             viewMode === 'en_vivo'
               ? 'No hay partidos en juego en este momento'
-              : 'No se encontraron partidos'
+              : 'No se encontraron partidos para este filtro'
           }
           description={
             viewMode === 'en_vivo'
-              ? 'Los cotejos en directo se actualizarán automáticamente cuando comience la jornada.'
-              : searchQuery
-              ? `No hay partidos programados para "${searchQuery}".`
-              : 'No hay partidos disponibles para la vista seleccionada.'
+              ? 'Consultá la pestaña "Fecha Actual" para ver los encuentros programados y resultados de la jornada.'
+              : 'Probá seleccionando otra jornada o quitando los filtros de búsqueda.'
           }
-          actionLabel={viewMode === 'en_vivo' ? 'Ver Próxima Fecha' : undefined}
-          onAction={viewMode === 'en_vivo' ? () => setViewMode('proxima_fecha') : undefined}
+          actionLabel="Ver Fecha Actual"
+          onAction={() => {
+            setViewMode('fecha_actual');
+            setSelectedRoundIndex(11);
+            setSearchQuery('');
+          }}
         />
       ) : (
         <div className="space-y-8">
           {Object.entries(groupedMatches).map(([dateStr, dateMatches]) => (
             <div key={dateStr} className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-white/[0.08]">
-                <Calendar className="w-4 h-4 text-[#DCA842]" />
-                <h3 className="font-editorial font-bold text-base text-[#F1EDE6]">
+              {/* Date Header */}
+              <div className="flex items-center gap-2 border-b border-white/[0.06] pb-2 pt-1">
+                <Calendar className="w-3.5 h-3.5 text-[#DCA842]" />
+                <h3 className="text-xs font-bold text-[#F1EDE6] tracking-wide">
                   {formatDateHeader(dateStr)}
                 </h3>
-                <span className="text-[11px] text-[#8B949E] ml-auto font-medium">
-                  {dateMatches.length} {dateMatches.length === 1 ? 'partido' : 'partidos'}
+                <span className="text-[10px] text-[#8B949E] font-num">
+                  ({dateMatches.length} {dateMatches.length === 1 ? 'partido' : 'partidos'})
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {dateMatches.map((m) => (
-                  <MatchCard
-                    key={m.id}
-                    match={m}
-                    onClick={() => onSelectMatch(m.id)}
-                  />
+              {/* Match Cards List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {dateMatches.map((match) => (
+                  <MatchCard key={match.id} match={match} onClick={onSelectMatch} />
                 ))}
               </div>
             </div>

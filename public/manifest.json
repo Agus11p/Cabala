@@ -1,0 +1,19 @@
+{
+  "name": "CÁBALA — Fútbol Argentino",
+  "short_name": "CÁBALA",
+  "description": "Plataforma de información, consulta y cultura del fútbol argentino. Partidos en vivo, estadísticas, tablas de posiciones y futuro competitivo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0C0E",
+  "theme_color": "#0A0C0E",
+  "orientation": "portrait-primary",
+  "lang": "es-AR",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["sports", "news", "entertainment"]
+}

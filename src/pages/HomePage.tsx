@@ -4,12 +4,16 @@ import { MatchCard } from '../components/matches/MatchCard';
 import { TeamBadge } from '../components/common/TeamBadge';
 import { CopasOverviewSection } from '../components/copas/CopasOverviewSection';
 import { Zap, ChevronRight, Trophy, Flame, User, ArrowUpRight, ShieldCheck, Clock } from 'lucide-react';
-import { formatStatValue } from '../utils/formatters';
+import { formatStatValue, formatMatchTime, formatMatchDate } from '../utils/formatters';
 
 interface HomePageProps {
   featuredMatch: Match | null;
   liveMatches: Match[];
   upcomingMatches: Match[];
+  allMatches?: Match[];
+  userClubLiveMatch?: Match | null;
+  userClubRecentMatch?: Match | null;
+  userClubUpcomingMatch?: Match | null;
   topTeams: Team[];
   topStandings: StandingRow[];
   news?: NewsInsight[];
@@ -26,6 +30,10 @@ export const HomePage: React.FC<HomePageProps> = ({
   featuredMatch,
   liveMatches,
   upcomingMatches,
+  allMatches = [],
+  userClubLiveMatch,
+  userClubRecentMatch,
+  userClubUpcomingMatch,
   topTeams,
   topStandings,
   news = [],
@@ -37,6 +45,37 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOpenGame,
   onOpenProfile,
 }) => {
+  const [clubMatchTab, setClubMatchTab] = React.useState<'recent' | 'upcoming'>('recent');
+  const [homeMatchFilter, setHomeMatchFilter] = React.useState<'todos' | 'resultados' | 'en_vivo' | 'por_jugar'>('todos');
+
+  // Partidos de la Fecha Actual (Fecha 12: 2026-10-02 al 2026-10-05)
+  const currentRoundMatches = React.useMemo(() => {
+    const pool = allMatches && allMatches.length > 0 ? allMatches : [...liveMatches, ...upcomingMatches];
+    const f12 = pool.filter((m) => m.date >= '2026-10-02' && m.date <= '2026-10-05');
+    if (f12.length > 0) return f12;
+    return pool.slice(0, 14);
+  }, [allMatches, liveMatches, upcomingMatches]);
+
+  const f12Finished = React.useMemo(() => {
+    return currentRoundMatches.filter((m) => m.status === 'finished');
+  }, [currentRoundMatches]);
+
+  const f12Live = React.useMemo(() => {
+    return currentRoundMatches.filter((m) => m.status === 'live');
+  }, [currentRoundMatches]);
+
+  const f12Scheduled = React.useMemo(() => {
+    return currentRoundMatches.filter((m) => m.status === 'scheduled');
+  }, [currentRoundMatches]);
+
+  const displayedHomeMatches = React.useMemo(() => {
+    if (homeMatchFilter === 'resultados') return f12Finished;
+    if (homeMatchFilter === 'en_vivo') return f12Live;
+    if (homeMatchFilter === 'por_jugar') return f12Scheduled;
+    // 'todos': primero en vivo, luego finalizados (con sus resultados conocidos), luego por jugar
+    return [...f12Live, ...f12Finished, ...f12Scheduled];
+  }, [homeMatchFilter, f12Finished, f12Live, f12Scheduled]);
+
   const currentRoundName = featuredMatch?.round || upcomingMatches[0]?.round || 'Fecha Oficial';
   const hasLiveMatches = liveMatches.length > 0;
 
@@ -55,6 +94,9 @@ export const HomePage: React.FC<HomePageProps> = ({
     ? Math.round((userProfile.wins / (userProfile.wins + userProfile.losses)) * 100)
     : 0;
 
+  // Determinar cuál es el partido principal de tu club
+  const clubActiveMatch = userClubLiveMatch || (clubMatchTab === 'recent' ? (userClubRecentMatch || userClubUpcomingMatch) : (userClubUpcomingMatch || userClubRecentMatch));
+
   return (
     <div className="space-y-10 animate-fadeIn pb-16">
       {/* ───────────────────────────────────────────────────────────
@@ -71,9 +113,11 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black uppercase tracking-wider text-[#DCA842]">
-                      {isFavoriteClubMatch
-                        ? (featuredMatch?.status === 'live' ? 'EN VIVO AHORA · PARTIDO PRINCIPAL' : 'PRÓXIMO PARTIDO DE TU CLUB')
-                        : 'TU CLUB EN SEGUIMIENTO'}
+                      {clubActiveMatch?.status === 'live'
+                        ? 'EN VIVO AHORA · EN JUEGO'
+                        : clubActiveMatch?.status === 'finished'
+                        ? 'ÚLTIMO RESULTADO · FINALIZADO'
+                        : 'PRÓXIMO COMPROMISO · A JUGAR'}
                     </span>
                   </div>
                   <h3 className="font-editorial font-bold text-sm text-[#F1EDE6]">
@@ -138,11 +182,126 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         </div>
 
-        {/* Hero: Featured Match Card (Principal Match) */}
-        {featuredMatch && (
-          <div>
-            <MatchCard match={featuredMatch} onClick={onSelectMatch} featured />
+        {/* Hero: Dual Card for Favorite Club (Recent Played + Upcoming) or Featured Match */}
+        {favoriteClub && (userClubRecentMatch || userClubUpcomingMatch || userClubLiveMatch) ? (
+          <div className="space-y-3">
+            {/* Toggle / Tabs for Recent vs Upcoming on Mobile */}
+            {(userClubRecentMatch && userClubUpcomingMatch) && !userClubLiveMatch && (
+              <div className="flex items-center gap-2 bg-[#121519] p-1.5 rounded-2xl border border-white/[0.08] w-fit">
+                <button
+                  onClick={() => setClubMatchTab('recent')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    clubMatchTab === 'recent'
+                      ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm'
+                      : 'text-[#8B949E] hover:text-[#F1EDE6]'
+                  }`}
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>Último Jugado (Finalizado)</span>
+                  {userClubRecentMatch.homeScore !== null && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-black/20 text-[#0A0C0E] font-num font-black">
+                      {userClubRecentMatch.homeScore}-{userClubRecentMatch.awayScore}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setClubMatchTab('upcoming')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    clubMatchTab === 'upcoming'
+                      ? 'bg-[#DCA842] text-[#0A0C0E] shadow-sm'
+                      : 'text-[#8B949E] hover:text-[#F1EDE6]'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Próximo Partido</span>
+                </button>
+              </div>
+            )}
+
+            {/* Display Active Match Card */}
+            {clubActiveMatch && (
+              <div>
+                <div className="mb-2 flex items-center justify-between text-xs">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#DCA842] flex items-center gap-1.5">
+                    {clubActiveMatch.status === 'live' ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                        <span className="text-[#10B981]">EN VIVO AHORA · TU CLUB</span>
+                      </>
+                    ) : clubActiveMatch.status === 'finished' ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-[#DCA842]" />
+                        <span>ÚLTIMO RESULTADO DE TU CLUB · FINALIZADO</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="w-3.5 h-3.5 text-[#DCA842]" />
+                        <span>PRÓXIMO COMPROMISO · A JUGAR</span>
+                      </>
+                    )}
+                  </span>
+                  <span className="text-[11px] text-[#8B949E]">
+                    {formatMatchDate(clubActiveMatch.date, clubActiveMatch.timestamp)} · {clubActiveMatch.tournament}
+                  </span>
+                </div>
+                <MatchCard match={clubActiveMatch} onClick={onSelectMatch} featured />
+              </div>
+            )}
+
+            {/* If both exist, show the other match as compact preview below */}
+            {userClubRecentMatch && userClubUpcomingMatch && !userClubLiveMatch && (
+              <div className="pt-1">
+                {clubMatchTab === 'recent' ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#121519] border border-white/[0.08] hover:border-[#DCA842]/40 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/[0.06] text-[#8B949E]">
+                        Siguiente desafío
+                      </span>
+                      <span className="text-xs font-bold text-[#F1EDE6]">
+                        {userClubUpcomingMatch.homeTeam?.shortName || userClubUpcomingMatch.homeTeam?.name} vs {userClubUpcomingMatch.awayTeam?.shortName || userClubUpcomingMatch.awayTeam?.name}
+                      </span>
+                      <span className="text-xs text-[#8B949E]">
+                        · {formatMatchDate(userClubUpcomingMatch.date, userClubUpcomingMatch.timestamp)} · {formatMatchTime(userClubUpcomingMatch.time, userClubUpcomingMatch.date, userClubUpcomingMatch.timestamp)} ({userClubUpcomingMatch.stadium || 'Estadio Oficial'})
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => onSelectMatch(userClubUpcomingMatch.id)}
+                      className="text-xs font-bold text-[#DCA842] hover:underline shrink-0"
+                    >
+                      Ver previa y detalles →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#121519] border border-white/[0.08] hover:border-[#DCA842]/40 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
+                        Último resultado
+                      </span>
+                      <span className="text-xs font-bold text-[#F1EDE6]">
+                        {userClubRecentMatch.homeTeam?.shortName || userClubRecentMatch.homeTeam?.name} {userClubRecentMatch.homeScore} - {userClubRecentMatch.awayScore} {userClubRecentMatch.awayTeam?.shortName || userClubRecentMatch.awayTeam?.name}
+                      </span>
+                      <span className="text-xs text-[#8B949E]">
+                        · {formatMatchDate(userClubRecentMatch.date, userClubRecentMatch.timestamp)} · Finalizado ({userClubRecentMatch.stadium || 'Estadio Oficial'})
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => onSelectMatch(userClubRecentMatch.id)}
+                      className="text-xs font-bold text-[#DCA842] hover:underline shrink-0"
+                    >
+                      Ver ficha y minuto a minuto →
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+        ) : (
+          featuredMatch && (
+            <div>
+              <MatchCard match={featuredMatch} onClick={onSelectMatch} featured />
+            </div>
+          )
         )}
       </section>
 
@@ -258,35 +417,97 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         </div>
 
-        {/* Asymmetric Section: Próximos Partidos + Snapshot de Líderes */}
+        {/* Asymmetric Section: Partidos & Resultados de la Fecha + Snapshot de Líderes */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
-          {/* Left: Agenda Compacta de Partidos (7 cols) */}
+          {/* Left: Agenda de Partidos y Resultados de la Fecha (7 cols) */}
           <div className="lg:col-span-7 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-white/[0.08] gap-2">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B949E]">Agenda Oficial</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#DCA842]">
+                  Torneo Clausura · Fecha 12 (Fecha Actual)
+                </span>
                 <h3 className="font-editorial font-bold text-lg text-[#F1EDE6]">
-                  Próximos Encuentros
+                  Partidos & Resultados de la Fecha
                 </h3>
               </div>
               <button
                 onClick={() => onNavigate('partidos')}
-                className="text-xs font-semibold text-[#8B949E] hover:text-[#DCA842] flex items-center gap-1 transition-colors"
+                className="text-xs font-semibold text-[#8B949E] hover:text-[#DCA842] flex items-center gap-1 transition-colors self-start sm:self-auto"
               >
-                <span>Ver todos</span>
+                <span>Ver fixture completo</span>
                 <ChevronRight className="w-3.5 h-3.5 text-[#DCA842]" />
               </button>
             </div>
 
-            {upcomingMatches.length > 0 ? (
+            {/* Sub-tabs para alternar vista previa: Todos / Resultados / En Vivo / Por Jugar */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <button
+                onClick={() => setHomeMatchFilter('todos')}
+                className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 ${
+                  homeMatchFilter === 'todos'
+                    ? 'bg-[#DCA842] text-[#0A0C0E] shadow-xs'
+                    : 'bg-[#121519] border border-white/[0.08] text-[#8B949E] hover:text-[#F1EDE6]'
+                }`}
+              >
+                Todos ({currentRoundMatches.length})
+              </button>
+              {f12Finished.length > 0 && (
+                <button
+                  onClick={() => setHomeMatchFilter('resultados')}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+                    homeMatchFilter === 'resultados'
+                      ? 'bg-[#DCA842] text-[#0A0C0E] shadow-xs'
+                      : 'bg-[#121519] border border-white/[0.08] text-[#8B949E] hover:text-[#F1EDE6]'
+                  }`}
+                >
+                  <span>Resultados</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/[0.12] font-num font-bold">
+                    {f12Finished.length}
+                  </span>
+                </button>
+              )}
+              {f12Live.length > 0 && (
+                <button
+                  onClick={() => setHomeMatchFilter('en_vivo')}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+                    homeMatchFilter === 'en_vivo'
+                      ? 'bg-[#10B981] text-[#0A0C0E]'
+                      : 'bg-[#10B981]/10 border border-[#10B981]/30 text-[#10B981]'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-ping" />
+                  <span>En Vivo ({f12Live.length})</span>
+                </button>
+              )}
+              <button
+                onClick={() => setHomeMatchFilter('por_jugar')}
+                className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 ${
+                  homeMatchFilter === 'por_jugar'
+                    ? 'bg-[#DCA842] text-[#0A0C0E] shadow-xs'
+                    : 'bg-[#121519] border border-white/[0.08] text-[#8B949E] hover:text-[#F1EDE6]'
+                }`}
+              >
+                Por Jugar ({f12Scheduled.length})
+              </button>
+            </div>
+
+            {displayedHomeMatches.length > 0 ? (
               <div className="space-y-2.5">
-                {upcomingMatches.slice(0, 4).map((match) => (
+                {displayedHomeMatches.slice(0, 6).map((match) => (
                   <MatchCard key={match.id} match={match} onClick={onSelectMatch} />
                 ))}
+                {displayedHomeMatches.length > 6 && (
+                  <button
+                    onClick={() => onNavigate('partidos')}
+                    className="w-full py-2.5 rounded-xl bg-[#121519] hover:bg-[#181C22] border border-white/[0.08] text-xs font-bold text-[#8B949E] hover:text-[#DCA842] transition-colors text-center block"
+                  >
+                    Ver los {displayedHomeMatches.length - 6} partidos restantes de la fecha →
+                  </button>
+                )}
               </div>
             ) : (
               <div className="p-6 rounded-2xl bg-[#121519] border border-white/[0.08] text-center text-xs text-[#8B949E]">
-                No hay partidos programados en la ventana actual.
+                No hay partidos para el filtro seleccionado.
               </div>
             )}
           </div>
@@ -438,6 +659,116 @@ export const HomePage: React.FC<HomePageProps> = ({
               <Zap className="w-4 h-4 fill-[#0A0C0E]" />
               <span>Jugar ahora</span>
             </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────────────────────────────────────────
+          3.5 CÁBALA: LA VISIÓN · FÚTBOL ARGENTINO, LLEVADO UN PASO MÁS ALLÁ
+          Manifiesto, Logros Actuales & Próximamente
+         ─────────────────────────────────────────────────────────── */}
+      <section className="p-7 sm:p-9 rounded-3xl bg-gradient-to-r from-[#181C22] via-[#15191F] to-[#121519] border border-white/[0.08] relative overflow-hidden space-y-6">
+        <div className="absolute right-0 top-0 w-80 h-80 rounded-full bg-[#DCA842] opacity-5 blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/[0.08] pb-5">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <span className="text-base">⚽🇦🇷</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#DCA842]">
+                Ecosistema Oficial CÁBALA
+              </span>
+            </div>
+            <h3 className="font-editorial font-black text-2xl sm:text-3xl text-[#F1EDE6] tracking-tight">
+              FÚTBOL ARGENTINO, LLEVADO UN PASO MÁS ALLÁ
+            </h3>
+            <p className="text-xs text-[#8B949E] leading-relaxed">
+              La idea no es crear simplemente otra página de resultados. Queremos construir una plataforma alrededor del fútbol argentino donde <strong>los datos reales, la competencia y la comunidad estén conectados</strong>.
+            </p>
+          </div>
+
+          <button
+            onClick={() => onNavigate('vision')}
+            className="px-4 py-2.5 rounded-xl bg-[#181C22] hover:bg-[#22272E] text-xs font-bold text-[#F1EDE6] hover:text-[#DCA842] border border-white/[0.08] transition-colors flex items-center gap-2 shrink-0"
+          >
+            <span>Ver Manifiesto Completo</span>
+            <ChevronRight className="w-4 h-4 text-[#DCA842]" />
+          </button>
+        </div>
+
+        {/* Dual Pillar Comparison: Lo Logrado vs Lo que Viene */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          {/* Box 1: Lo que ya está logrado y funcionando */}
+          <div className="p-5 rounded-2xl bg-[#121519]/80 border border-white/[0.06] space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[#10B981] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+                <span>¿Qué estamos desarrollando actualmente? (Ya logrado)</span>
+              </span>
+              <span className="text-[10px] text-[#8B949E] font-num">8 pilares activos</span>
+            </div>
+            <ul className="text-xs text-[#F1EDE6]/90 space-y-1.5 list-none">
+              <li className="flex items-center gap-2">
+                <span className="text-[#10B981] font-bold">✓</span>
+                <span>Tablas del Apertura (Campeón Belgrano) y Clausura</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#10B981] font-bold">✓</span>
+                <span>Tabla General Anual (30 clubes para Copas y Descenso)</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#10B981] font-bold">✓</span>
+                <span>Resultados, fixture y partidos minuto a minuto</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#10B981] font-bold">✓</span>
+                <span>Información verificada de los 30 clubes (estadios, títulos, apodos)</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#10B981] font-bold">✓</span>
+                <span>Clasificaciones, Copas Nacionales y escenarios deportivos</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#10B981] font-bold">✓</span>
+                <span>Arquitectura tolerante a fallos con datos verificables sin inventar</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Box 2: Lo que queremos hacer después (Próximamente) */}
+          <div className="p-5 rounded-2xl bg-[#121519]/80 border border-white/[0.06] space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[#DCA842] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#DCA842] animate-pulse" />
+                <span>¿Qué queremos hacer después? (Próximamente)</span>
+              </span>
+              <span className="text-[10px] text-[#8B949E] font-num">10 iniciativas en curso</span>
+            </div>
+            <ul className="text-xs text-[#8B949E] space-y-1.5 list-none">
+              <li className="flex items-center gap-2">
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#DCA842]/15 text-[#DCA842]">PRÓXIMAMENTE</span>
+                <span className="text-[#F1EDE6]">🏆 Trivia competitiva & ⚔️ Partidas 1 vs 1</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#DCA842]/15 text-[#DCA842]">PRÓXIMAMENTE</span>
+                <span className="text-[#F1EDE6]">📈 Rankings nacionales y sistemas competitivos ELO</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#DCA842]/15 text-[#DCA842]">PRÓXIMAMENTE</span>
+                <span className="text-[#F1EDE6]">👥 Ligas y torneos privados entre amigos</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#DCA842]/15 text-[#DCA842]">PRÓXIMAMENTE</span>
+                <span className="text-[#F1EDE6]">🏅 Progresión, perfiles e insignias de club</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#DCA842]/15 text-[#DCA842]">PRÓXIMAMENTE</span>
+                <span className="text-[#F1EDE6]">🗣️ Comunidad de debate y 🤝 Aportes colaborativos</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#DCA842]/15 text-[#DCA842]">PRÓXIMAMENTE</span>
+                <span className="text-[#F1EDE6]">🤖 Herramientas inteligentes para análisis de escenarios</span>
+              </li>
+            </ul>
           </div>
         </div>
       </section>

@@ -9,7 +9,7 @@ export const COPA_ARGENTINA_SEED: Match[] = [
       "id": "9744",
       "name": "Independiente Rivadavia",
       "shortName": "Ind. Rivadavia",
-      "code": "RIV",
+      "code": "CSIR",
       "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/9744.png"
     },
     "awayTeam": {
@@ -1995,7 +1995,7 @@ export const COPA_ARGENTINA_SEED: Match[] = [
       "id": "9744",
       "name": "Independiente Rivadavia",
       "shortName": "Ind. Rivadavia",
-      "code": "RIV",
+      "code": "CSIR",
       "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/9744.png"
     },
     "awayTeam": {
@@ -2419,7 +2419,7 @@ export const COPA_ARGENTINA_SEED: Match[] = [
       "id": "9744",
       "name": "Independiente Rivadavia",
       "shortName": "Ind. Rivadavia",
-      "code": "RIV",
+      "code": "CSIR",
       "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/9744.png"
     },
     "homeScore": 0,
@@ -2645,7 +2645,7 @@ export const COPA_ARGENTINA_SEED: Match[] = [
       "id": "9744",
       "name": "Independiente Rivadavia",
       "shortName": "Ind. Rivadavia",
-      "code": "RIV",
+      "code": "CSIR",
       "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/9744.png"
     },
     "awayTeam": {

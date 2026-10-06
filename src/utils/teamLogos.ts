@@ -407,6 +407,7 @@ const TEAM_ALIASES: Record<string, string> = {
   // Independiente Rivadavia
   independienterivadavia: '9744',
   indrivadavia: '9744',
+  rivadavia: '9744',
   csir: '9744',
   // Atlético Tucumán
   atleticotucuman: '9785',

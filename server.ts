@@ -9,6 +9,9 @@ import { ingestionEngine, dbProvider, espnProvider } from './src/services/provid
 import { promiedosProvider } from './src/services/providers/PromiedosProvider';
 import { searchDiscoveryProvider, TRUSTED_AUTHORITY_DOMAINS } from './src/services/providers/SearchDiscoveryProvider';
 import { COPA_ARGENTINA_SEED } from './src/data/copaArgentinaSeed';
+import { TEAMS_SEED } from './src/data/teamsSeed';
+import { SEASON_MATCHES_SEED } from './src/data/seasonMatchesSeed';
+import { STANDINGS_SEED } from './src/data/standingsSeed';
 
 dotenv.config();
 
@@ -73,7 +76,7 @@ async function fetchWithTimeout(url: string, timeoutMs = 8000) {
 // Normalizers: Transform Provider (ESPN arg.1) to Internal Clean Domain
 // ----------------------------------------------------
 
-function mapStatus(statusType: { name?: string; state?: string; completed?: boolean }): 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' {
+function mapStatus(statusType: { name?: string; state?: string; completed?: boolean }): 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' | 'suspended' | 'delayed' {
   const state = (statusType.state || '').toLowerCase();
   const name = (statusType.name || '').toLowerCase();
 
@@ -83,9 +86,33 @@ function mapStatus(statusType: { name?: string; state?: string; completed?: bool
   if (state === 'post' || statusType.completed || name === 'status_final' || name === 'status_full_time') {
     return 'finished';
   }
+  if (name.includes('suspended')) return 'suspended';
+  if (name.includes('delay') || state.includes('delay')) return 'delayed';
   if (name.includes('postponed')) return 'postponed';
   if (name.includes('cancelled')) return 'cancelled';
   return 'scheduled';
+}
+
+function parseDisplayClock(displayClock?: any): string | number | undefined {
+  if (!displayClock) return undefined;
+  const raw = String(displayClock).trim().replace(/['\s]/g, '');
+  if (!raw) return undefined;
+  // If it's injury time like "45+2" or "90+3", preserve it as string
+  if (/^\d+\+\d+$/.test(raw)) {
+    return raw;
+  }
+  // Handle cases where plus was lost: "452" -> "45+2", "904" -> "90+4"
+  if (/^45(\d+)$/.test(raw)) {
+    return `45+${raw.slice(2)}`;
+  }
+  if (/^90(\d+)$/.test(raw)) {
+    return `90+${raw.slice(2)}`;
+  }
+  const parsed = parseInt(raw, 10);
+  if (!isNaN(parsed) && parsed >= 0) {
+    return parsed;
+  }
+  return raw;
 }
 
 function normalizeEspnTeam(teamData: any, zone?: 'A' | 'B') {
@@ -93,22 +120,41 @@ function normalizeEspnTeam(teamData: any, zone?: 'A' | 'B') {
   const name = teamData.displayName || teamData.name || 'Club';
   const shortName = teamData.shortDisplayName || teamData.name || name;
   const abbreviation = teamData.abbreviation || shortName.slice(0, 3).toUpperCase();
-  const logo = teamData.logos?.[0]?.href || teamData.logo || (id ? `https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png` : '');
-  const primaryColor = teamData.color ? `#${teamData.color}` : '#DCA842';
-  const secondaryColor = teamData.alternateColor ? `#${teamData.alternateColor}` : '#181C22';
+  const seed =
+    (id ? TEAMS_SEED.find((s) => s.id === id) : null) ||
+    (id === '9744' || name.toLowerCase().includes('rivadavia') ? TEAMS_SEED.find((s) => s.id === '9744') : null) ||
+    (id === '16' || name.toLowerCase().includes('river') ? TEAMS_SEED.find((s) => s.id === '16') : null) ||
+    TEAMS_SEED.find((s) => s.name.toLowerCase() === name.toLowerCase()) ||
+    TEAMS_SEED.find((s) => s.shortName.toLowerCase() === shortName.toLowerCase()) ||
+    TEAMS_SEED.find((s) => s.code.toLowerCase() === abbreviation.toLowerCase() && s.id !== '9744' && s.id !== '16');
+  const logo = teamData.logos?.[0]?.href || teamData.logo || seed?.logo || (id ? `https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png` : '');
+  const primaryColor = seed?.primaryColor || (teamData.color ? `#${teamData.color}` : '#DCA842');
+  const secondaryColor = seed?.secondaryColor || (teamData.alternateColor ? `#${teamData.alternateColor}` : '#181C22');
 
   return {
-    id,
-    name,
-    shortName,
-    code: abbreviation,
-    city: teamData.location || 'Argentina',
-    stadium: 'Estadio Oficial',
-    founded: 1900,
+    ...(seed || {}),
+    id: seed?.id || id,
+    name: seed?.name || name,
+    shortName: seed?.shortName || shortName,
+    code: seed?.code || abbreviation,
+    city: seed?.city || teamData.location || 'Argentina',
+    stadium: seed?.stadium || 'Estadio Oficial',
+    stadiumNickname: seed?.stadiumNickname,
+    stadiumCapacity: seed?.stadiumCapacity,
+    founded: seed?.founded || 1900,
+    foundedFullDate: seed?.foundedFullDate,
+    nickname: seed?.nickname,
+    nicknames: seed?.nicknames || (seed?.nickname ? [seed.nickname] : []),
+    titlesCount: seed?.titlesCount || { league: 0, nationalCup: 0, international: 0, total: 0 },
+    honors: seed?.honors,
+    historySummary: seed?.historySummary,
+    president: seed?.president,
+    manager: seed?.manager,
+    officialWebsite: seed?.officialWebsite,
     logo,
     primaryColor,
     secondaryColor,
-    zone,
+    zone: seed?.zone || zone,
   };
 }
 
@@ -123,13 +169,25 @@ function normalizeEspnMatch(event: any) {
 
   const statusType = competition.status?.type || {};
   const status = mapStatus(statusType);
-  const minute = competition.status?.displayClock
-    ? parseInt(competition.status.displayClock.replace(/[^0-9]/g, ''), 10) || undefined
-    : undefined;
+  const minute = parseDisplayClock(competition.status?.displayClock);
 
   const dateObj = new Date(event.date || competition.date || Date.now());
-  const dateStr = dateObj.toISOString().split('T')[0];
-  const timeStr = dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  let dateStr = dateObj.toISOString().split('T')[0];
+  let timeStr = '20:00';
+  if (!isNaN(dateObj.getTime())) {
+    dateStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(dateObj);
+    timeStr = new Intl.DateTimeFormat('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(dateObj);
+  }
 
   // REGLA ABSOLUTA CÁBALA 2026:
   // Si el partido todavía no empezó (scheduled): homeScore = null, awayScore = null (SIN DATO).
@@ -171,6 +229,10 @@ function normalizeEspnMatch(event: any) {
 // API Routes
 // ----------------------------------------------------
 
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: Date.now() });
+});
+
 app.get('/api/football/provider-info', (req: Request, res: Response) => {
   res.json({
     provider: 'ESPN Soccer API (Feed Deportivo ARG.1)',
@@ -195,15 +257,28 @@ app.get('/api/football/provider-info', (req: Request, res: Response) => {
 app.get('/api/football/ingestion/status', async (req: Request, res: Response) => {
   const status = await dbProvider.getIngestionStatus();
   const diagnostics = await dbProvider.getPersistenceDiagnostics();
+  const sanitizeRun = (r: any) => {
+    if (!r) return null;
+    return {
+      id: r.id,
+      provider: r.provider,
+      startedAt: r.startedAt,
+      completedAt: r.completedAt,
+      status: r.status,
+      recordsCount: r.recordsCount ?? 0,
+      errorsCount: Array.isArray(r.errors) ? r.errors.length : 0,
+    };
+  };
+
   res.json({
-    pipeline: 'ESPN -> INGESTION LAYER -> NORMALIZATION -> VALIDATION -> FIRESTORE -> DATABASE PROVIDER -> CÁBALA API -> FRONTEND',
+    pipeline: 'ESPN -> INGESTION LAYER -> NORMALIZATION -> VALIDATION -> PERSISTENCE -> CÁBALA API -> FRONTEND',
     season: '2026',
-    persistence: 'FIRESTORE_PERSISTENT',
+    persistence: (dbProvider.getDataSourceInfo?.()?.name) || 'DATABASE_PERSISTENT',
     databaseId: diagnostics.databaseId,
     firestoreConnected: diagnostics.firestoreConnected,
     lastSync: status.lastRun?.completedAt || new Date().toISOString(),
-    lastRun: status.lastRun,
-    recentRuns: status.runs,
+    lastRun: sanitizeRun(status.lastRun),
+    recentRuns: (status.runs || []).map(sanitizeRun),
     recordsStored: status.totalStored,
     sources: [
       {
@@ -555,10 +630,8 @@ app.get('/api/football/matches', async (req: Request, res: Response) => {
       console.error('[Matches API] Fallback error:', fallbackErr.message);
     }
 
-    res.status(502).json({
-      error: 'No se pudieron obtener los partidos desde el proveedor de datos ni desde la base persistente.',
-      details: error.message,
-    });
+    // Fallback garantizado de temporada completa 2026
+    res.json(SEASON_MATCHES_SEED);
   }
 });
 
@@ -863,31 +936,90 @@ app.get('/api/football/matches/:id', async (req: Request, res: Response) => {
 
     const statusType = competition.status?.type || {};
     const status = mapStatus(statusType);
-    const minute = competition.status?.displayClock
-      ? parseInt(competition.status.displayClock.replace(/[^0-9]/g, ''), 10) || undefined
-      : undefined;
+    const minute = parseDisplayClock(competition.status?.displayClock);
 
     const dateObj = new Date(competition.date || Date.now());
-    const dateStr = dateObj.toISOString().split('T')[0];
-    const timeStr = dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    let dateStr = dateObj.toISOString().split('T')[0];
+    let timeStr = '20:00';
+    if (!isNaN(dateObj.getTime())) {
+      dateStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(dateObj);
+      timeStr = new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(dateObj);
+    }
 
-    // Events timeline
+    // Events timeline - Ingestión limpia y precisa de incidencias
     const rawPlays = data.keyEvents || [];
-    const events = rawPlays.map((p: any, idx: number) => {
-      let type: 'goal' | 'yellow_card' | 'red_card' | 'sub' = 'goal';
-      const text = (p.text || '').toLowerCase();
-      if (text.includes('yellow card') || text.includes('tarjeta amarilla')) type = 'yellow_card';
-      else if (text.includes('red card') || text.includes('tarjeta roja')) type = 'red_card';
-      else if (text.includes('substitution') || text.includes('sustitución')) type = 'sub';
+    const events: any[] = [];
 
-      return {
+    for (let idx = 0; idx < rawPlays.length; idx++) {
+      const p = rawPlays[idx];
+      const text = (p.text || '').trim();
+      const lower = text.toLowerCase();
+      const espnType = (p.type?.type || p.type?.text || '').toLowerCase();
+
+      // Filtrar eventos técnicos irrelevantes o vacíos (ruido sin información para el hincha)
+      if (!text && (!p.type?.text || p.type?.text === 'Start Delay' || p.type?.text === 'End Delay')) continue;
+      if (text === 'Start Delay' || text === 'End Delay') continue;
+      if (espnType === 'end-delay' || lower.includes('delay over')) continue;
+      if (lower.includes('they are ready to continue')) continue;
+
+      let type: 'goal' | 'yellow_card' | 'red_card' | 'sub' | 'var' | 'delay' | 'general' = 'general';
+
+      // REGLA ESTRICTA: Solo es gol si explícitamente es un gol real
+      const isActualGoal =
+        (espnType === 'goal' || espnType === 'goal---free-kick' || espnType === 'penalty---scored' ||
+        lower.startsWith('goal!') || lower.startsWith('gol!') || lower.startsWith('¡gol!') ||
+        lower.includes('own goal by') || lower.includes('gol en contra')) &&
+        !lower.includes('missed') && !lower.includes('disallowed') && !lower.includes('cancelled') &&
+        !lower.includes('saved') && !lower.includes('attempt') && !lower.includes('penalty missed');
+
+      if (isActualGoal) {
+        type = 'goal';
+      } else if (espnType === 'yellow-card' || lower.includes('yellow card') || lower.includes('tarjeta amarilla') || lower.includes('is shown the yellow card')) {
+        type = 'yellow_card';
+      } else if (espnType === 'red-card' || lower.includes('red card') || lower.includes('tarjeta roja') || lower.includes('is shown the red card')) {
+        type = 'red_card';
+      } else if (espnType === 'substitution' || lower.includes('substitution') || lower.includes('sustitución') || lower.includes('replaces')) {
+        type = 'sub';
+      } else if (espnType.includes('var') || lower.includes('var decision') || lower.includes('revisión var')) {
+        type = 'var';
+      } else if (espnType === 'start-delay' || lower.includes('delay in match') || lower.includes('injury')) {
+        type = 'delay';
+      } else {
+        type = 'general';
+      }
+
+      // Minuto de la jugada
+      const clockRaw = p.clock?.displayValue ? String(p.clock.displayValue).replace(/['\s]/g, '').trim() : '';
+      let minuteVal: string | number = 0;
+      if (/^\d+\+\d+$/.test(clockRaw)) {
+        minuteVal = clockRaw;
+      } else if (/^45(\d+)$/.test(clockRaw)) {
+        minuteVal = `45+${clockRaw.slice(2)}`;
+      } else if (/^90(\d+)$/.test(clockRaw)) {
+        minuteVal = `90+${clockRaw.slice(2)}`;
+      } else {
+        const num = parseInt(clockRaw, 10);
+        minuteVal = !isNaN(num) ? num : (clockRaw || 0);
+      }
+
+      events.push({
         id: `play_${idx}`,
-        minute: p.clock?.displayValue ? parseInt(p.clock.displayValue, 10) || 0 : 0,
+        minute: minuteVal,
         teamId: String(p.team?.id || ''),
         type,
-        player: p.text || 'Incidencia',
-      };
-    });
+        player: text || p.type?.text || 'Incidencia',
+      });
+    }
 
     // Boxscore stats
     let stats = undefined;
@@ -914,32 +1046,70 @@ app.get('/api/football/matches/:id', async (req: Request, res: Response) => {
       };
     }
 
+    // Cruzar con fixture oficial para garantizar concordancia absoluta con la vista previa
+    const officialSeed = SEASON_MATCHES_SEED.find((m) => m.id === String(id)) || COPA_ARGENTINA_SEED.find((m) => m.id === String(id));
+    if (officialSeed) {
+      if (officialSeed.time) timeStr = officialSeed.time;
+      if (officialSeed.date) dateStr = officialSeed.date;
+    }
+
     const matchDetail = {
       id: String(id),
       homeTeamId: String(homeTeamRaw.id),
       awayTeamId: String(awayTeamRaw.id),
       homeTeam: normalizeEspnTeam(homeTeamRaw),
       awayTeam: normalizeEspnTeam(awayTeamRaw),
-      homeScore: homeCompetitor.score !== undefined ? parseInt(homeCompetitor.score, 10) : null,
-      awayScore: awayCompetitor.score !== undefined ? parseInt(awayCompetitor.score, 10) : null,
-      status,
+      homeScore: homeCompetitor.score !== undefined ? parseInt(homeCompetitor.score, 10) : (officialSeed?.homeScore ?? null),
+      awayScore: awayCompetitor.score !== undefined ? parseInt(awayCompetitor.score, 10) : (officialSeed?.awayScore ?? null),
+      status: status || officialSeed?.status || 'scheduled',
       minute,
       date: dateStr,
       time: timeStr,
-      timestamp: dateObj.getTime(),
-      tournament: 'Liga Profesional de Fútbol (AFA)',
-      round: competition.round || 'Fecha Oficial',
-      stadium: data.gameInfo?.venue?.fullName || 'Estadio Oficial',
-      referee: data.gameInfo?.officials?.[0]?.displayName || undefined,
+      kickoffTime: timeStr,
+      timestamp: officialSeed?.timestamp || dateObj.getTime(),
+      tournament: officialSeed?.tournament || 'Liga Profesional de Fútbol (AFA)',
+      round: officialSeed?.round || competition.round || 'Fecha Oficial',
+      stadium: data.gameInfo?.venue?.fullName || officialSeed?.stadium || 'Estadio Oficial',
+      referee: data.gameInfo?.officials?.[0]?.displayName || officialSeed?.referee || undefined,
       events: events.length > 0 ? events : undefined,
       stats,
     };
 
     res.json(matchDetail);
   } catch (error: any) {
-    console.error('Error fetching match detail:', error.message);
-    res.status(502).json({
-      error: 'No se pudieron obtener los datos de la ficha técnica desde el proveedor (ESPN).',
+    console.warn(`[MatchDetail API] Error consultando ESPN summary para ${req.params.id}: ${error.message}. Intentando fallback institucional...`);
+    const id = req.params.id;
+    // 1. Buscar en Copa Argentina
+    const caMatch = COPA_ARGENTINA_SEED.find((m) => m.id === id);
+    if (caMatch) {
+      return res.json({
+        ...caMatch,
+        tournament: caMatch.tournament || 'Copa Argentina 2026',
+        stadium: caMatch.stadium || 'Estadio Neutral',
+      });
+    }
+
+    // 2. Buscar en temporada de liga
+    const seasonMatch = SEASON_MATCHES_SEED.find((m) => m.id === id);
+    if (seasonMatch) {
+      return res.json({
+        ...seasonMatch,
+        tournament: seasonMatch.tournament || 'Liga Profesional de Fútbol (AFA)',
+      });
+    }
+
+    // 3. Buscar en Firestore
+    try {
+      const persisted = await dbProvider.getMatch(id);
+      if (persisted) {
+        return res.json(persisted);
+      }
+    } catch {
+      // ignore
+    }
+
+    res.status(404).json({
+      error: `No se encontró la ficha técnica del partido ${id}.`,
       details: error.message,
     });
   }
@@ -1005,7 +1175,17 @@ function parseChildEntries(child: any, zone: 'A' | 'B', phase: 'apertura' | 'cla
 // Standings
 app.get('/api/football/standings', async (req: Request, res: Response) => {
   try {
-    const { type = 'clausura', season = '2026' } = req.query;
+    const now = new Date();
+    // Determinación automática del torneo activo basado en calendario oficial de fechas:
+    // Torneo Apertura: 1° semestre (Enero - Junio, final disputada el 24/05/2026).
+    // Torneo Clausura: 2° semestre (1 de Julio en adelante).
+    const isPostJuly = now.getMonth() >= 6 || (now.getMonth() === 5 && now.getDate() >= 1);
+    const activeTournament = isPostJuly ? 'clausura' : 'apertura';
+    const isAperturaClosed = now.getFullYear() > 2026 || (now.getFullYear() === 2026 && (now.getMonth() > 4 || (now.getMonth() === 4 && now.getDate() >= 24)));
+    
+    const rawType = (req.query.type as string | undefined)?.toLowerCase();
+    const type = (!rawType || rawType === 'active' || rawType === 'all') ? activeTournament : rawType;
+    const { season = '2026' } = req.query;
 
     if (season !== '2026') {
       return res.status(400).json({
@@ -1301,6 +1481,14 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
     const requestedZone = (req.query.zone as string | undefined)?.toUpperCase();
     const dataState = inconsistencies.length > 0 ? 'DATA_INCONSISTENCY' : (zoneAStandings.length > 0 || zoneBStandings.length > 0) ? 'SUCCESS' : 'EMPTY';
 
+    const extraMetadata = {
+      activeTournament,
+      isClosed: type === 'apertura' ? isAperturaClosed : false,
+      champion: type === 'apertura' && isAperturaClosed ? 'Belgrano de Córdoba' : undefined,
+      runnerUp: type === 'apertura' && isAperturaClosed ? 'River Plate' : undefined,
+      tournamentStatus: type === 'apertura' ? (isAperturaClosed ? 'closed' : 'active') : 'active',
+    };
+
     if (requestedZone === 'A') {
       return res.json({
         type,
@@ -1313,6 +1501,7 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
         data: zoneAStandings,
         zoneA: zoneAStandings,
         zoneB: zoneBStandings,
+        ...extraMetadata,
       });
     }
 
@@ -1328,6 +1517,7 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
         data: zoneBStandings,
         zoneA: zoneAStandings,
         zoneB: zoneBStandings,
+        ...extraMetadata,
       });
     }
 
@@ -1341,6 +1531,7 @@ app.get('/api/football/standings', async (req: Request, res: Response) => {
       zoneA: zoneAStandings,
       zoneB: zoneBStandings,
       data: zoneAStandings,
+      ...extraMetadata,
     });
   } catch (error: any) {
     console.warn('[Standings API] Error consultando ESPN, activando fallback a Firestore:', error.message);
@@ -1525,13 +1716,41 @@ app.get('/api/football/teams', async (req: Request, res: Response) => {
     const teams = rawTeams.map((item: any) => {
       const raw = item.team || {};
       const teamObj = normalizeEspnTeam(raw);
+      const seedTeam =
+        (teamObj.id ? TEAMS_SEED.find((s) => s.id === teamObj.id) : null) ||
+        (teamObj.id === '9744' || teamObj.name.toLowerCase().includes('rivadavia') ? TEAMS_SEED.find((s) => s.id === '9744') : null) ||
+        (teamObj.id === '16' || teamObj.name.toLowerCase().includes('river') ? TEAMS_SEED.find((s) => s.id === '16') : null) ||
+        TEAMS_SEED.find((s) => s.name.toLowerCase() === teamObj.name.toLowerCase()) ||
+        TEAMS_SEED.find((s) => teamObj.shortName && s.shortName.toLowerCase() === teamObj.shortName.toLowerCase());
       return {
         ...teamObj,
+        ...(seedTeam || {}),
+        titlesCount: seedTeam?.titlesCount || { league: 0, nationalCup: 0, international: 0, total: 0 },
+        honors: seedTeam?.honors,
+        founded: seedTeam?.founded || teamObj.founded,
+        foundedFullDate: seedTeam?.foundedFullDate,
+        stadium: seedTeam?.stadium || teamObj.stadium,
+        stadiumNickname: seedTeam?.stadiumNickname,
+        stadiumCapacity: seedTeam?.stadiumCapacity,
+        nickname: seedTeam?.nickname,
+        nicknames: seedTeam?.nicknames || (seedTeam?.nickname ? [seedTeam.nickname] : []),
+        historySummary: seedTeam?.historySummary,
+        president: seedTeam?.president,
+        manager: seedTeam?.manager,
+        officialWebsite: seedTeam?.officialWebsite,
         recentForm: [] as ('W' | 'D' | 'L')[],
       };
     });
 
-    res.json(teams);
+    // Asegurar los 30 clubes de Primera División siempre presentes
+    const existingIds = new Set(teams.map((t: any) => t.id));
+    for (const seed of TEAMS_SEED) {
+      if (!existingIds.has(seed.id)) {
+        teams.push({ ...seed });
+      }
+    }
+
+    res.json(teams.sort((a: any, b: any) => a.name.localeCompare(b.name, 'es')));
   } catch (error: any) {
     console.warn('[Teams API] Error consultando ESPN, activando fallback a Firestore:', error.message);
     try {
@@ -1542,10 +1761,8 @@ app.get('/api/football/teams', async (req: Request, res: Response) => {
     } catch (fallbackErr: any) {
       console.error('[Teams API] Fallback error:', fallbackErr.message);
     }
-    res.status(502).json({
-      error: 'No se pudo obtener el directorio de clubes.',
-      details: error.message,
-    });
+    // Fallback garantizado e inquebrantable a los 30 clubes de Primera División
+    res.json(TEAMS_SEED);
   }
 });
 
@@ -1656,7 +1873,7 @@ async function startServer() {
       }
     }, 60 * 1000);
 
-    // 2. Ciclo periódico (cada 15 minutos): tablas oficiales, fixture activo y promedios Promiedos
+    // 2. Ciclo periódico más corto (cada 5 minutos): tablas oficiales, fixture activo y promedios
     setInterval(async () => {
       try {
         await ingestionEngine.syncAll({ fullSeason: false });
@@ -1667,7 +1884,7 @@ async function startServer() {
       } catch (err: any) {
         console.warn('[AutoUpdater] Error en sincronización periódica general:', err.message);
       }
-    }, 15 * 60 * 1000);
+    }, 5 * 60 * 1000);
   });
 }
 

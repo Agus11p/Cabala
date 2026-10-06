@@ -2,16 +2,50 @@
 <html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>CÁBALA — Fútbol Argentino</title>
-    <meta name="description" content="Plataforma de información, consulta y cultura del fútbol argentino. Partidos en vivo, estadísticas, tablas de posiciones y futuro competitivo." />
+    <meta name="description" content="Plataforma oficial de información, consulta y cultura del fútbol argentino. Partidos en vivo, estadísticas oficiales, tablas de posiciones y futuro competitivo." />
+    
+    <!-- Mobile PWA & Native App Feel -->
+    <meta name="theme-color" content="#0A0C0E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="CÁBALA" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Google Tools & SEO Readiness -->
+    <meta name="google-site-verification" content="GSC_CÁBALA_VERIFICATION_TOKEN" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- OpenGraph / Social Sharing -->
     <meta property="og:title" content="CÁBALA — Fútbol Argentino" />
-    <meta property="og:description" content="Plataforma de información, consulta y cultura del fútbol argentino. Partidos en vivo, estadísticas, tablas de posiciones y futuro competitivo." />
+    <meta property="og:description" content="Plataforma de información, consulta y cultura del fútbol argentino. Partidos en vivo, estadísticas oficiales, tablas de posiciones y futuro competitivo." />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_AR" />
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts Preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+
+    <!-- Schema.org JSON-LD Structured Data for Google Search -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SportsOrganization",
+        "name": "CÁBALA Fútbol Argentino",
+        "sport": "Soccer",
+        "description": "Plataforma de información, estadísticas, resultados en vivo y fixtures de la Liga Profesional de Fútbol y Copa Argentina.",
+        "url": "https://cabalafutbol.com.ar",
+        "foundingDate": "2026",
+        "address": {
+          "@type": "PostalAddress",
+          "addressCountry": "AR"
+        }
+      }
+    </script>
   </head>
   <body class="bg-[#0A0C0E] text-[#F1EDE6] antialiased selection:bg-[#DCA842] selection:text-[#0A0C0E]">
     <div id="root"></div>

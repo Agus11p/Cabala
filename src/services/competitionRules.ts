@@ -487,7 +487,8 @@ export function validateStandingsIntegrity(
     const club = row.team?.name || row.team?.shortName || `Club ${row.teamId}`;
     const pjExpected = row.won + row.drawn + row.lost;
     const dgExpected = row.goalsFor - row.goalsAgainst;
-    const ptsExpected = row.won * 3 + row.drawn;
+    const penalty = (row as any).penaltyPoints || 0;
+    const ptsExpected = (row.won * 3 + row.drawn) - penalty;
 
     if (row.played !== pjExpected) {
       inconsistencies.push({

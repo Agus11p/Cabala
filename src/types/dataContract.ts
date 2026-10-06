@@ -104,10 +104,12 @@ export interface MatchEntity {
   awayTeamId: string;
   homeScore: number | null;
   awayScore: number | null;
-  status: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled';
-  minute?: number | null;
+  status: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' | 'suspended' | 'delayed';
+  minute?: number | string | null;
   date: string;
   time: string | null;
+  kickoffTime?: string | null;
+  timestamp?: number | null;
   stadium: string | null;
   referee: string | null;
   round: string;
@@ -118,7 +120,6 @@ export interface MatchEntity {
   season?: number | string;
   phase?: 'apertura' | 'clausura' | 'playoffs';
   zone?: 'A' | 'B' | 'interzonal';
-  kickoffTime?: string | null;
   homeTeam?: any;
   awayTeam?: any;
   venue?: { name?: string | null; city?: string | null } | null;
@@ -155,6 +156,7 @@ export interface StandingEntity {
   goalsAgainst: number;
   goalDiff: number;
   points: number;
+  penaltyPoints?: number | null;
   fairPlayPoints?: number | null;
   provenance: ProvenanceMeta;
 }
@@ -172,6 +174,7 @@ export interface AnnualStandingEntity {
   goalsAgainst: number;
   goalDiff: number;
   points: number;
+  penaltyPoints?: number | null;
   isLeagueChampion?: boolean;
   provenance: ProvenanceMeta;
 }

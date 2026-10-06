@@ -22,7 +22,7 @@ export const TabNav = <T extends string = string>({
   size = 'md',
 }: TabNavProps<T>) => {
   return (
-    <div className={`inline-flex items-center p-1 bg-[#121519] rounded-xl border border-[#22272E] ${className}`}>
+    <div className={`inline-flex items-center p-1 bg-[#121519] rounded-xl border border-[#22272E] max-w-full overflow-x-auto scrollbar-none shrink-0 ${className}`}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (

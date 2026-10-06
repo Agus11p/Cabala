@@ -89,6 +89,9 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
   };
 
   const hasStats = Boolean(team.seasonStats && typeof team.seasonStats.played === 'number');
+  const titles = team.titlesCount || { league: 0, nationalCup: 0, international: 0, total: 0 };
+  const totalTitles = titles.total ?? (titles.league + titles.nationalCup + titles.international);
+  const nicknamesList = team.nicknames && team.nicknames.length > 0 ? team.nicknames : (team.nickname ? [team.nickname] : []);
 
   return (
     <div className="space-y-8 animate-fadeIn pb-12">
@@ -127,42 +130,62 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div className="flex items-start md:items-center gap-6">
             <TeamBadge teamId={team.id} team={team} logoUrl={team.logo} size="xl" className="shrink-0" />
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-bold text-[#8B949E] uppercase tracking-widest">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold text-[#8B949E] uppercase tracking-widest px-2 py-0.5 rounded bg-white/[0.05] border border-white/[0.08]">
                   Primera División AFA · Torneo 2026
                 </span>
+                {team.zone && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#DCA842]/15 text-[#DCA842] border border-[#DCA842]/30">
+                    Zona {team.zone}
+                  </span>
+                )}
+                {totalTitles > 0 && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-[#DCA842] border border-amber-500/30 flex items-center gap-1">
+                    <Trophy className="w-3 h-3 text-[#DCA842]" />
+                    <span>{totalTitles} {totalTitles === 1 ? 'Título Oficial' : 'Títulos Oficiales'}</span>
+                  </span>
+                )}
               </div>
-              <h1 className="font-editorial font-black text-3xl md:text-4xl text-[#F1EDE6] tracking-tight leading-tight">
-                {team.name}
-              </h1>
-              <div className="flex flex-wrap items-center gap-y-1.5 gap-x-5 text-xs text-[#8B949E] mt-3">
+
+              <div>
+                <h1 className="font-editorial font-black text-3xl md:text-5xl text-[#F1EDE6] tracking-tight leading-tight">
+                  {team.name}
+                </h1>
+                {nicknamesList.length > 0 && (
+                  <p className="text-xs sm:text-sm text-[#DCA842] font-medium mt-1">
+                    Apodos: <span className="text-[#F1EDE6] font-semibold">{nicknamesList.join(' · ')}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-y-2 gap-x-5 text-xs text-[#8B949E] pt-1">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-[#DCA842]" />
-                  <span>{dossier?.city || formatTextValue(team.city)}</span>
+                  <span>{team.neighborhood ? `${team.neighborhood}, ` : ''}{team.city}{team.province && team.province !== team.city ? ` (${team.province})` : ''}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-[#8B949E]" />
                   <span>
                     Fundación:{' '}
                     <strong className="text-[#F1EDE6]">
-                      {dossier?.founded || (team.founded && team.founded > 1800) ? (
-                        dossier?.founded || team.founded
-                      ) : (
-                        <SinDatoBadge inline />
-                      )}
+                      {team.foundedFullDate || team.founded}
                     </strong>
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Shield className="w-3.5 h-3.5 text-[#8B949E]" />
-                  <span>{dossier?.stadium || formatTextValue(team.stadium)}</span>
+                  <span>
+                    {team.stadium}
+                    {team.stadiumNickname ? ` ("${team.stadiumNickname}")` : ''}
+                    {team.stadiumCapacity ? ` · ${team.stadiumCapacity.toLocaleString('es-AR')} esp.` : ''}
+                  </span>
                 </div>
-                {dossier?.officialWebsiteUrl && (
+                {team.officialWebsite && (
                   <div className="flex items-center gap-1.5">
                     <ExternalLink className="w-3.5 h-3.5 text-[#DCA842]" />
                     <a
-                      href={dossier.officialWebsiteUrl}
+                      href={team.officialWebsite}
                       target="_blank"
                       rel="noreferrer"
                       className="text-[#DCA842] hover:underline flex items-center gap-1 font-semibold"
@@ -199,8 +222,9 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
             </div>
           ) : (
             <div className="bg-[#181C22] p-4 rounded-2xl border border-[#22272E] text-center shrink-0">
-              <span className="text-[10px] text-[#8B949E] uppercase font-bold block mb-1">Abreviatura</span>
+              <span className="text-[10px] text-[#8B949E] uppercase font-bold block mb-1">Abreviatura Oficial</span>
               <span className="font-num font-black text-2xl text-[#DCA842]">{team.code}</span>
+              <span className="text-[10px] text-[#8B949E] block mt-1">AFA / FIFA</span>
             </div>
           )}
         </div>
@@ -208,7 +232,7 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
         {/* Recent Form Strip */}
         <div className="mt-8 pt-5 border-t border-[#22272E] flex flex-wrap items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3">
-            <span className="text-[#8B949E] font-medium">Últimos 5 partidos (Forma):</span>
+            <span className="text-[#8B949E] font-medium">Últimos 5 partidos (Forma oficial):</span>
             {team.recentForm && team.recentForm.length > 0 ? (
               <div className="flex items-center gap-1.5">
                 {team.recentForm.map((f, i) => renderFormBadge(f, i))}
@@ -217,6 +241,11 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
               <SinDatoBadge inline label="SIN DATO" />
             )}
           </div>
+          {team.manager && (
+            <div className="text-xs text-[#8B949E]">
+              Director Técnico: <strong className="text-[#F1EDE6]">{team.manager}</strong>
+            </div>
+          )}
         </div>
       </div>
 
@@ -449,34 +478,93 @@ export const ClubDetailView: React.FC<ClubDetailViewProps> = ({
 
       {/* TAB 4: HISTORIAL & PALMARÉS */}
       {activeTab === 'historial' && (
-        <div className="p-8 rounded-3xl bg-[#121519] border border-[#22272E] text-center space-y-3">
-          {team.titlesCount && (team.titlesCount.league > 0 || team.titlesCount.nationalCup > 0 || team.titlesCount.international > 0) ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-6 rounded-2xl bg-[#181C22] border border-[#22272E] text-center">
-                <Trophy className="w-8 h-8 text-[#DCA842] mx-auto mb-2" />
-                <span className="text-xs text-[#8B949E] block uppercase font-bold">Ligas Nacionales</span>
-                <span className="font-num text-4xl font-black text-[#F1EDE6] mt-2 block">{team.titlesCount.league}</span>
-              </div>
-              <div className="p-6 rounded-2xl bg-[#181C22] border border-[#22272E] text-center">
-                <Trophy className="w-8 h-8 text-[#DCA842] mx-auto mb-2" />
-                <span className="text-xs text-[#8B949E] block uppercase font-bold">Copas Nacionales</span>
-                <span className="font-num text-4xl font-black text-[#F1EDE6] mt-2 block">{team.titlesCount.nationalCup}</span>
-              </div>
-              <div className="p-6 rounded-2xl bg-[#181C22] border border-[#22272E] text-center">
-                <Trophy className="w-8 h-8 text-[#DCA842] mx-auto mb-2" />
-                <span className="text-xs text-[#8B949E] block uppercase font-bold">Títulos Internacionales</span>
-                <span className="font-num text-4xl font-black text-[#F1EDE6] mt-2 block">{team.titlesCount.international}</span>
-              </div>
+        <div className="space-y-6">
+          {/* Official Titles Summary Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl bg-[#121519] border border-white/[0.08] text-center">
+              <Trophy className="w-6 h-6 text-[#DCA842] mx-auto mb-1.5" />
+              <span className="text-[10px] text-[#8B949E] block uppercase font-bold tracking-wider">Ligas Nacionales</span>
+              <span className="font-num text-3xl font-black text-[#F1EDE6] mt-1 block">{titles.league}</span>
+              <span className="text-[10px] text-[#8B949E] mt-0.5 block">AFA Oficial</span>
             </div>
-          ) : (
-            <div className="py-6 space-y-3">
-              <SinDatoBadge inline label="SIN DATO" />
-              <h4 className="font-bold text-sm text-[#F1EDE6]">Palmarés histórico oficial no disponible</h4>
-              <p className="text-xs text-[#8B949E] max-w-sm mx-auto">
-                El histórico oficial de títulos de AFA no está integrado en la fuente de datos actual (ESPN). En cumplimiento estricto con las reglas de CÁBALA, no se inventan títulos.
+
+            <div className="p-5 rounded-2xl bg-[#121519] border border-white/[0.08] text-center">
+              <Trophy className="w-6 h-6 text-[#DCA842] mx-auto mb-1.5" />
+              <span className="text-[10px] text-[#8B949E] block uppercase font-bold tracking-wider">Copas Nacionales</span>
+              <span className="font-num text-3xl font-black text-[#F1EDE6] mt-1 block">{titles.nationalCup}</span>
+              <span className="text-[10px] text-[#8B949E] mt-0.5 block">Copas AFA</span>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-[#121519] border border-white/[0.08] text-center">
+              <Trophy className="w-6 h-6 text-[#DCA842] mx-auto mb-1.5" />
+              <span className="text-[10px] text-[#8B949E] block uppercase font-bold tracking-wider">Títulos Internacionales</span>
+              <span className="font-num text-3xl font-black text-[#F1EDE6] mt-1 block">{titles.international}</span>
+              <span className="text-[10px] text-[#8B949E] mt-0.5 block">CONMEBOL / FIFA</span>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-[#181C22] border border-[#DCA842]/30 text-center shadow-sm">
+              <Trophy className="w-6 h-6 text-[#DCA842] mx-auto mb-1.5" />
+              <span className="text-[10px] text-[#DCA842] block uppercase font-black tracking-wider">Total Oficiales</span>
+              <span className="font-num text-3xl font-black text-[#DCA842] mt-1 block">{totalTitles}</span>
+              <span className="text-[10px] text-[#8B949E] mt-0.5 block">Primera División</span>
+            </div>
+          </div>
+
+          {/* Highlights & Historical Campaigns */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-[#121519] border border-white/[0.08] space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.08] pb-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#DCA842] block mb-1">
+                  {totalTitles > 0 ? 'Palmarés Verificado AFA / CONMEBOL' : 'Trayectoria en Primera División'}
+                </span>
+                <h3 className="font-editorial font-bold text-xl text-[#F1EDE6]">
+                  {totalTitles > 0 ? 'Conquistas y Títulos Destacados' : 'Grandes Campañas & Logros Históricos'}
+                </h3>
+              </div>
+              <span className="text-xs text-[#8B949E]">
+                {totalTitles > 0 ? `${totalTitles} trofeos en vitrina` : 'En busca de su 1ª estrella de Primera'}
+              </span>
+            </div>
+
+            {team.honors?.summary && (
+              <p className="text-xs sm:text-sm text-[#F1EDE6]/90 leading-relaxed font-medium bg-[#181C22] p-4 rounded-xl border border-white/[0.06]">
+                {team.honors.summary}
               </p>
-            </div>
-          )}
+            )}
+
+            {team.honors?.highlighted && team.honors.highlighted.length > 0 ? (
+              <div className="space-y-2.5 pt-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8B949E] block">
+                  {totalTitles > 0 ? 'Principales Títulos Conquistados:' : 'Hitos e Historial Institucional:'}
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {team.honors.highlighted.map((highlight, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-3 p-3 rounded-xl bg-[#181C22]/80 border border-white/[0.06] hover:border-[#DCA842]/30 transition-colors"
+                    >
+                      <Trophy className="w-4 h-4 text-[#DCA842] shrink-0 mt-0.5" />
+                      <span className="text-xs font-semibold text-[#F1EDE6] leading-snug">
+                        {highlight}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Club Origin & History */}
+            {team.historySummary && (
+              <div className="pt-4 border-t border-white/[0.06] space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#DCA842] block">
+                  Reseña Histórica & Mística
+                </span>
+                <p className="text-xs text-[#8B949E] leading-relaxed">
+                  {team.historySummary}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

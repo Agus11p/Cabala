@@ -241,7 +241,8 @@ export class EspnAdapter {
       const matches = await this.fetchScoreboard();
       const found = matches.find((m) => m.id === eventId);
       if (found) {
-        cacheService.set(cacheKey, found, CACHE_TTL.REGULAR_MATCHES);
+        const ttl = found.status === 'live' ? CACHE_TTL.REALTIME_MATCHES : CACHE_TTL.REGULAR_MATCHES;
+        cacheService.set(cacheKey, found, ttl);
         return found;
       }
 
@@ -259,7 +260,8 @@ export class EspnAdapter {
       if (summaryData.header) {
         const match = this.mapEspnEventToMatch(summaryData.header);
         if (match) {
-          cacheService.set(cacheKey, match, CACHE_TTL.REGULAR_MATCHES);
+          const ttl = match.status === 'live' ? CACHE_TTL.REALTIME_MATCHES : CACHE_TTL.REGULAR_MATCHES;
+          cacheService.set(cacheKey, match, ttl);
           return match;
         }
       }
@@ -319,6 +321,10 @@ export class EspnAdapter {
       status = 'finished';
     } else if (state === 'in' || statusName.includes('progress') || statusName.includes('halftime')) {
       status = 'live';
+    } else if (statusName.includes('suspended')) {
+      status = 'suspended';
+    } else if (statusName.includes('delay') || state.includes('delay')) {
+      status = 'delayed';
     } else if (statusName.includes('postponed')) {
       status = 'postponed';
     } else if (statusName.includes('cancelled')) {
@@ -344,12 +350,22 @@ export class EspnAdapter {
     // Parse date & kickoff time
     const rawDate = competition.date || event.date || new Date().toISOString();
     const dateObj = new Date(rawDate);
-    const dateStr = !isNaN(dateObj.getTime())
-      ? dateObj.toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0];
-    const timeStr = !isNaN(dateObj.getTime())
-      ? dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
-      : '20:00';
+    let dateStr = new Date().toISOString().split('T')[0];
+    let timeStr = '20:00';
+    if (!isNaN(dateObj.getTime())) {
+      dateStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(dateObj);
+      timeStr = new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(dateObj);
+    }
 
     // Minutes display for live matches
     let minute: number | undefined;
